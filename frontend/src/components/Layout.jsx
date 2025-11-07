@@ -1,7 +1,6 @@
 import { Link, useLocation } from 'react-router-dom'
 import { Database, FileText, CheckCircle, BarChart3 } from 'lucide-react'
 import { motion } from 'framer-motion'
-import carmaxLogo from '../assets/carmax-logo.png'
 
 const navItems = [
   { path: '/', label: 'Dashboard', icon: BarChart3 },
@@ -20,8 +19,7 @@ export default function Layout({ children }) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-6">
-              <img src={carmaxLogo} alt="CarMax" className="h-12" />
-              <div className="border-l border-gray-300 h-12"></div>
+              <Database className="h-10 w-10 text-databricks-red" />
               <div>
                 <h1 className="text-xl font-bold text-gray-900">
                   Unity Catalog Description Generator

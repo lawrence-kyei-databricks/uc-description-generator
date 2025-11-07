@@ -16,14 +16,21 @@ import requests
 app = Flask(__name__,
             template_folder='../templates',
             static_folder='../static')
-app.secret_key = os.environ.get('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+
+# Validate critical configuration on startup
+FLASK_SECRET_KEY = os.environ.get('FLASK_SECRET_KEY')
+if not FLASK_SECRET_KEY or FLASK_SECRET_KEY == 'dev-secret-key-not-for-production':
+    raise ValueError("FLASK_SECRET_KEY must be set to a secure random value in production")
+app.secret_key = FLASK_SECRET_KEY
 
 # Configuration
 TARGET_CATALOG = os.environ.get('TARGET_CATALOG', 'main')
 GOVERNANCE_SCHEMA = os.environ.get('GOVERNANCE_SCHEMA', 'governance')
 GOVERNANCE_TABLE = f"{TARGET_CATALOG}.{GOVERNANCE_SCHEMA}.description_governance"
 MODEL_ENDPOINT = os.environ.get('MODEL_ENDPOINT', 'databricks-meta-llama-3-1-70b-instruct')
-WAREHOUSE_ID = os.environ.get('WAREHOUSE_ID', '')
+WAREHOUSE_ID = os.environ.get('WAREHOUSE_ID')
+if not WAREHOUSE_ID:
+    raise ValueError("WAREHOUSE_ID must be configured in environment variables")
 
 # Lazy initialize Databricks client (will be created on first use)
 _workspace_client = None
@@ -41,6 +48,23 @@ class DescriptionService:
 
     def __init__(self):
         self.w = get_workspace_client()
+
+    def _validate_identifier(self, identifier: str, name: str):
+        """Validate SQL identifier (catalog, schema, table, column name)"""
+        if not identifier:
+            raise ValueError(f"{name} cannot be empty")
+        # Check for valid identifier characters (alphanumeric, underscore, hyphen)
+        # Allow dots for fully qualified names
+        if not all(c.isalnum() or c in ('_', '-', '.') for c in identifier):
+            raise ValueError(f"Invalid {name}: contains illegal characters")
+        if len(identifier) > 255:
+            raise ValueError(f"{name} too long (max 255 characters)")
+
+    def _escape_sql_string(self, value: str) -> str:
+        """Escape single quotes in SQL string values"""
+        if value is None:
+            return ""
+        return str(value).replace("'", "''")
 
     def check_permissions(self, catalog: str, schema: str, table: Optional[str] = None) -> Dict:
         """
@@ -362,17 +386,27 @@ Description:"""
                                    table: str, column: Optional[str], column_type: Optional[str],
                                    description: str):
         """Store generated description in governance table"""
-        column_val = f"'{column}'" if column else "NULL"
-        column_type_val = f"'{column_type}'" if column_type else "NULL"
-        escaped_desc = description.replace("'", "''")
+        # Validate inputs
+        self._validate_identifier(catalog, "catalog")
+        self._validate_identifier(schema, "schema")
+        self._validate_identifier(table, "table")
+        if column:
+            self._validate_identifier(column, "column")
+
+        # Escape all string values for SQL
+        column_val = f"'{self._escape_sql_string(column)}'" if column else "NULL"
+        column_type_val = f"'{self._escape_sql_string(column_type)}'" if column_type else "NULL"
+        escaped_desc = self._escape_sql_string(description)
 
         insert_sql = f"""
         INSERT INTO {GOVERNANCE_TABLE}
         (object_type, catalog_name, schema_name, table_name, column_name, column_data_type,
          ai_generated_description, review_status, generated_at, model_used)
         VALUES
-        ('{object_type}', '{catalog}', '{schema}', '{table}', {column_val}, {column_type_val},
-         '{escaped_desc}', 'PENDING', current_timestamp(), '{MODEL_ENDPOINT}')
+        ('{self._escape_sql_string(object_type)}', '{self._escape_sql_string(catalog)}',
+         '{self._escape_sql_string(schema)}', '{self._escape_sql_string(table)}',
+         {column_val}, {column_type_val},
+         '{escaped_desc}', 'PENDING', current_timestamp(), '{self._escape_sql_string(MODEL_ENDPOINT)}')
         """
 
         self.execute_sql(insert_sql)
@@ -437,14 +471,20 @@ Description:"""
     def update_review_status(self, record_id: int, status: str,
                             approved_desc: Optional[str], reviewer: str):
         """Update review status"""
+        # Validate inputs
+        if not isinstance(record_id, int) or record_id <= 0:
+            raise ValueError("Invalid record_id")
+        if status not in ('PENDING', 'APPROVED', 'REJECTED', 'APPLIED'):
+            raise ValueError(f"Invalid status: {status}")
+
         if approved_desc:
-            escaped_desc = approved_desc.replace("'", "''")
+            escaped_desc = self._escape_sql_string(approved_desc)
             update_sql = f"""
             UPDATE {GOVERNANCE_TABLE}
             SET
-                review_status = '{status}',
+                review_status = '{self._escape_sql_string(status)}',
                 approved_description = '{escaped_desc}',
-                reviewer = '{reviewer}',
+                reviewer = '{self._escape_sql_string(reviewer)}',
                 reviewed_at = current_timestamp()
             WHERE id = {record_id}
             """
@@ -452,9 +492,9 @@ Description:"""
             update_sql = f"""
             UPDATE {GOVERNANCE_TABLE}
             SET
-                review_status = '{status}',
+                review_status = '{self._escape_sql_string(status)}',
                 approved_description = ai_generated_description,
-                reviewer = '{reviewer}',
+                reviewer = '{self._escape_sql_string(reviewer)}',
                 reviewed_at = current_timestamp()
             WHERE id = {record_id}
             """
@@ -476,7 +516,14 @@ Description:"""
 
         for item in approved:
             try:
-                escaped_desc = item['approved_description'].replace("'", "''")
+                # Validate identifiers
+                self._validate_identifier(item['catalog_name'], "catalog")
+                self._validate_identifier(item['schema_name'], "schema")
+                self._validate_identifier(item['table_name'], "table")
+                if item['column_name']:
+                    self._validate_identifier(item['column_name'], "column")
+
+                escaped_desc = self._escape_sql_string(item['approved_description'])
 
                 if item['object_type'] == 'TABLE':
                     apply_sql = f"""
@@ -493,6 +540,8 @@ Description:"""
                 self.execute_sql(apply_sql)
 
                 # Mark as applied
+                if not isinstance(item['id'], int) or item['id'] <= 0:
+                    raise ValueError("Invalid record ID")
                 update_sql = f"""
                 UPDATE {GOVERNANCE_TABLE}
                 SET review_status = 'APPLIED', applied_at = current_timestamp()

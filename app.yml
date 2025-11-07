@@ -1,12 +1,7 @@
 command:
-  - "gunicorn"
-  - "--bind"
-  - "0.0.0.0:8000"
-  - "--workers"
-  - "1"
-  - "--timeout"
-  - "120"
-  - "app.main:app"
+  - "sh"
+  - "-c"
+  - "gunicorn --bind 0.0.0.0:${DATABRICKS_APP_PORT:-8000} --workers 1 --timeout 120 app.main:app"
 
 name: uc-description-generator
 
@@ -26,4 +21,4 @@ env:
   - name: WAREHOUSE_ID
     value: "8baced1ff014912d"
   - name: FLASK_SECRET_KEY
-    value: "dev-secret-key-not-for-production"
+    value: "06f9cece80436035b50577079ca52b2acf5963fc01bacde3ee48075caf45cce1"
