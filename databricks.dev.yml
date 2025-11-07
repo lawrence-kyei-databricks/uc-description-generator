@@ -2,7 +2,7 @@
 # Copy this to databricks.prod.yml and update values for production
 
 variables:
-  warehouse_id: "YOUR_DEV_WAREHOUSE_ID"  # Update with your dev warehouse ID
+  warehouse_id: "8baced1ff014912d"
   target_catalog: "main"
   governance_schema: "governance"
   model_endpoint: "databricks-meta-llama-3-1-70b-instruct"

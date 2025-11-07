@@ -1,6 +1,12 @@
 command:
-  - "python"
-  - "app/main.py"
+  - "gunicorn"
+  - "--bind"
+  - "0.0.0.0:8080"
+  - "--workers"
+  - "1"
+  - "--timeout"
+  - "120"
+  - "app.main:app"
 
 name: uc-description-generator
 
@@ -8,4 +14,18 @@ resources:
   - name: warehouse
     description: SQL warehouse for UC operations
     warehouse:
-      id: "{{warehouse_id}}"
+      id: "8baced1ff014912d"
+
+env:
+  - name: TARGET_CATALOG
+    value: "main"
+  - name: GOVERNANCE_SCHEMA
+    value: "dbdemos_retail_c360"
+  - name: MODEL_ENDPOINT
+    value: "databricks-meta-llama-3-1-70b-instruct"
+  - name: WAREHOUSE_ID
+    value: "8baced1ff014912d"
+  - name: FLASK_SECRET_KEY
+    value: "dev-secret-key-not-for-production"
+  - name: PORT
+    value: "8080"

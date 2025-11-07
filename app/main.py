@@ -3,7 +3,7 @@ Unity Catalog Description Generator - Databricks App
 Web UI for human-in-the-loop review and approval
 """
 
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, send_from_directory
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service.sql import StatementState
 import os
@@ -25,15 +25,22 @@ GOVERNANCE_TABLE = f"{TARGET_CATALOG}.{GOVERNANCE_SCHEMA}.description_governance
 MODEL_ENDPOINT = os.environ.get('MODEL_ENDPOINT', 'databricks-meta-llama-3-1-70b-instruct')
 WAREHOUSE_ID = os.environ.get('WAREHOUSE_ID', '')
 
-# Initialize Databricks client
-w = WorkspaceClient()
+# Lazy initialize Databricks client (will be created on first use)
+_workspace_client = None
+
+def get_workspace_client():
+    """Get or create WorkspaceClient instance"""
+    global _workspace_client
+    if _workspace_client is None:
+        _workspace_client = WorkspaceClient()
+    return _workspace_client
 
 
 class DescriptionService:
     """Service for managing UC descriptions"""
 
     def __init__(self):
-        self.w = w
+        self.w = get_workspace_client()
 
     def check_permissions(self, catalog: str, schema: str, table: Optional[str] = None) -> Dict:
         """
@@ -838,17 +845,34 @@ def api_coverage():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+# Health check endpoint
+@app.route('/health')
+def health():
+    """Health check endpoint"""
+    return jsonify({
+        'status': 'healthy',
+        'app': 'uc-description-generator',
+        'version': '1.0.0'
+    })
+
+
+# Serve React assets
+@app.route('/assets/<path:path>')
+def serve_assets(path):
+    """Serve React assets (JS, CSS, images)"""
+    return send_from_directory(os.path.join(app.static_folder, 'assets'), path)
+
 # Serve React app
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
 def serve_react(path):
     """Serve React frontend"""
-    if path and (path.startswith('api/') or path.startswith('static/')):
+    # Don't intercept API calls
+    if path.startswith('api/'):
         return jsonify({'error': 'Not found'}), 404
 
-    # In production, serve built React files from static folder
-    # For development, proxy to Vite dev server
-    return render_template('index.html')
+    # For all other routes, serve the React app
+    return send_from_directory(app.static_folder, 'index.html')
 
 
 if __name__ == '__main__':
