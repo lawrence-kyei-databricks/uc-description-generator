@@ -175,7 +175,7 @@ class DescriptionService:
         FROM system.information_schema.tables t
         WHERE table_catalog = '{catalog}'
           AND table_schema = '{schema}'
-          AND table_type = 'MANAGED'
+          AND table_type IN ('MANAGED', 'EXTERNAL', 'MATERIALIZED_VIEW')
         ORDER BY table_name
         """
         return self.execute_sql(query)
