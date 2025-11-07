@@ -245,7 +245,7 @@ class DescriptionService:
         self.execute_sql(create_table)
 
     def get_tables_for_generation(self, catalog: str, schema: Optional[str] = None) -> List[Dict]:
-        """Get tables that need descriptions"""
+        """Get tables for description generation - shows all tables"""
         if schema:
             query = f"""
             SELECT
@@ -257,8 +257,7 @@ class DescriptionService:
             WHERE table_catalog = '{catalog}'
               AND table_schema = '{schema}'
               AND table_type = 'MANAGED'
-              AND (comment IS NULL OR comment = '')
-            ORDER BY table_schema, table_name
+            ORDER BY table_name
             """
         else:
             query = f"""
@@ -412,7 +411,7 @@ Description:"""
         self.execute_sql(insert_sql)
 
     def get_pending_reviews(self, limit: int = 100, offset: int = 0) -> List[Dict]:
-        """Get descriptions pending review"""
+        """Get descriptions for review - sorted by status then date"""
         query = f"""
         SELECT
             id,
@@ -425,11 +424,21 @@ Description:"""
             column_name,
             column_data_type,
             ai_generated_description,
+            approved_description,
+            review_status,
+            reviewer,
             generated_at,
+            reviewed_at,
             model_used
         FROM {GOVERNANCE_TABLE}
-        WHERE review_status = 'PENDING'
-        ORDER BY generated_at DESC
+        WHERE review_status IN ('PENDING', 'APPROVED', 'APPLIED')
+        ORDER BY
+            CASE review_status
+                WHEN 'PENDING' THEN 1
+                WHEN 'APPROVED' THEN 2
+                WHEN 'APPLIED' THEN 3
+            END,
+            generated_at DESC
         LIMIT {limit} OFFSET {offset}
         """
 
