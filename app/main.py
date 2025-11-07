@@ -245,7 +245,7 @@ class DescriptionService:
         self.execute_sql(create_table)
 
     def get_tables_for_generation(self, catalog: str, schema: Optional[str] = None) -> List[Dict]:
-        """Get tables for description generation - shows all tables"""
+        """Get tables for description generation - shows all tables (MANAGED, EXTERNAL, MATERIALIZED_VIEW)"""
         if schema:
             query = f"""
             SELECT
@@ -256,7 +256,7 @@ class DescriptionService:
             FROM system.information_schema.tables
             WHERE table_catalog = '{catalog}'
               AND table_schema = '{schema}'
-              AND table_type = 'MANAGED'
+              AND table_type IN ('MANAGED', 'EXTERNAL', 'MATERIALIZED_VIEW')
             ORDER BY table_name
             """
         else:
@@ -268,7 +268,7 @@ class DescriptionService:
                 comment as current_comment
             FROM system.information_schema.tables
             WHERE table_catalog = '{catalog}'
-              AND table_type = 'MANAGED'
+              AND table_type IN ('MANAGED', 'EXTERNAL', 'MATERIALIZED_VIEW')
               AND (comment IS NULL OR comment = '')
             ORDER BY table_schema, table_name
             """
