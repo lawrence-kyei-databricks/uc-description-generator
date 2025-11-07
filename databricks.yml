@@ -1,0 +1,99 @@
+# Databricks Asset Bundle configuration for UC Description Generator
+# Deploy with: databricks bundle deploy
+
+bundle:
+  name: uc-description-generator
+
+targets:
+  # Development environment
+  dev:
+    mode: development
+    workspace:
+      host: ${workspace.host}
+
+    resources:
+      apps:
+        uc-description-generator:
+          name: uc-description-generator-dev
+          description: "UC Description Generator - Development"
+          resources:
+            - name: warehouse
+              description: SQL Warehouse for UC operations
+              warehouse:
+                id: ${var.warehouse_id}
+
+          config:
+            command:
+              - "python"
+              - "app/main.py"
+
+            env:
+              - name: TARGET_CATALOG
+                value: ${var.target_catalog}
+              - name: GOVERNANCE_SCHEMA
+                value: ${var.governance_schema}
+              - name: MODEL_ENDPOINT
+                value: ${var.model_endpoint}
+              - name: WAREHOUSE_ID
+                value: ${var.warehouse_id}
+              - name: FLASK_SECRET_KEY
+                value: ${var.flask_secret_key}
+              - name: PORT
+                value: "8080"
+
+  # Production environment
+  prod:
+    mode: production
+    workspace:
+      host: ${workspace.host}
+
+    resources:
+      apps:
+        uc-description-generator:
+          name: uc-description-generator-prod
+          description: "UC Description Generator - Production"
+          resources:
+            - name: warehouse
+              description: SQL Warehouse for UC operations
+              warehouse:
+                id: ${var.warehouse_id}
+
+          config:
+            command:
+              - "python"
+              - "app/main.py"
+
+            env:
+              - name: TARGET_CATALOG
+                value: ${var.target_catalog}
+              - name: GOVERNANCE_SCHEMA
+                value: ${var.governance_schema}
+              - name: MODEL_ENDPOINT
+                value: ${var.model_endpoint}
+              - name: WAREHOUSE_ID
+                value: ${var.warehouse_id}
+              - name: FLASK_SECRET_KEY
+                value: ${var.flask_secret_key}
+              - name: PORT
+                value: "8080"
+
+variables:
+  warehouse_id:
+    description: "SQL Warehouse ID for executing queries"
+    default: ""
+
+  target_catalog:
+    description: "Default catalog for documentation (can be changed in UI)"
+    default: "main"
+
+  governance_schema:
+    description: "Schema for governance tracking table"
+    default: "governance"
+
+  model_endpoint:
+    description: "Foundation Model API endpoint"
+    default: "databricks-meta-llama-3-1-70b-instruct"
+
+  flask_secret_key:
+    description: "Flask session secret key"
+    default: "change-me-in-production"

@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - UC Description Generator{% endblock %}
+
+{% block content %}
+<div class="card" style="text-align: center; padding: 3rem;">
+    <img src="{{ url_for('static', filename='carmax-logo.png') }}" alt="CarMax" style="height: 80px; margin-bottom: 1rem;">
+    <h1 style="margin-bottom: 0.5rem;">Unity Catalog Description Generator</h1>
+    <p style="color: #666; font-size: 1.1rem;">AI-Powered Table & Column Documentation for Compliance</p>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="value">{{ stats.total or 0 }}</div>
+        <div class="label">Total Items</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.pending or 0 }}</div>
+        <div class="label">Pending Review</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.approved or 0 }}</div>
+        <div class="label">Approved</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.applied or 0 }}</div>
+        <div class="label">Applied to UC</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.tables or 0 }}</div>
+        <div class="label">Tables</div>
+    </div>
+    <div class="stat-card">
+        <div class="value">{{ stats.columns or 0 }}</div>
+        <div class="label">Columns</div>
+    </div>
+</div>
+
+{% if stats.total and stats.total > 0 %}
+<div class="card">
+    <h2>Overall Progress</h2>
+    <div class="progress-bar">
+        <div class="progress-bar-fill" style="width: {{ ((stats.applied or 0) / stats.total * 100) | round(1) }}%"></div>
+    </div>
+    <p style="margin-top: 1rem; text-align: center; font-size: 1.2rem; font-weight: 600;">
+        {{ ((stats.applied or 0) / stats.total * 100) | round(1) }}% Complete
+        ({{ stats.applied or 0 }} / {{ stats.total }})
+    </p>
+</div>
+{% endif %}
+
+<div class="card">
+    <h2>Progress by Schema</h2>
+    {% if schema_progress %}
+    <table>
+        <thead>
+            <tr>
+                <th>Schema</th>
+                <th>Total Items</th>
+                <th>Completed</th>
+                <th>Pending</th>
+                <th>Progress</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for schema in schema_progress %}
+            <tr>
+                <td><span class="code">{{ schema.schema_name }}</span></td>
+                <td>{{ schema.total }}</td>
+                <td>{{ schema.completed }}</td>
+                <td>{{ schema.pending }}</td>
+                <td>
+                    <div class="progress-bar" style="width: 200px;">
+                        <div class="progress-bar-fill" style="width: {{ schema.pct_complete }}%"></div>
+                    </div>
+                    <span style="margin-left: 0.5rem;">{{ schema.pct_complete }}%</span>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="text-align: center; color: #666; padding: 2rem;">
+        No data yet. Click "Generate" to start creating descriptions.
+    </p>
+    {% endif %}
+</div>
+
+<div class="card">
+    <h2>Quick Actions</h2>
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-top: 1rem;">
+        <div>
+            <h3 style="margin-bottom: 0.5rem;">1. Setup</h3>
+            <p style="margin-bottom: 1rem; color: #666;">Create governance tracking table</p>
+            <button class="btn" onclick="setupGovernance()">Setup Database</button>
+        </div>
+        <div>
+            <h3 style="margin-bottom: 0.5rem;">2. Generate</h3>
+            <p style="margin-bottom: 1rem; color: #666;">Generate AI descriptions</p>
+            <a href="/generate"><button class="btn">Generate Descriptions</button></a>
+        </div>
+        <div>
+            <h3 style="margin-bottom: 0.5rem;">3. Review</h3>
+            <p style="margin-bottom: 1rem; color: #666;">Review and approve descriptions</p>
+            <a href="/review"><button class="btn">Review Queue</button></a>
+        </div>
+        <div>
+            <h3 style="margin-bottom: 0.5rem;">4. Apply</h3>
+            <p style="margin-bottom: 1rem; color: #666;">Apply approved to Unity Catalog</p>
+            <button class="btn" onclick="applyDescriptions()">Apply to UC</button>
+        </div>
+    </div>
+</div>
+
+<div id="result-area"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+async function setupGovernance() {
+    if (!confirm('This will create the governance tracking table. Continue?')) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Setting up...';
+
+    try {
+        const result = await apiCall('/api/setup', 'POST');
+        showAlert('Governance table created successfully!', 'success');
+        btn.textContent = 'Setup Complete ✓';
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Setup Database';
+    }
+}
+
+async function applyDescriptions() {
+    if (!confirm('This will apply all approved descriptions to Unity Catalog. This may take a few minutes. Continue?')) return;
+
+    const btn = event.target;
+    btn.disabled = true;
+    btn.textContent = 'Applying...';
+
+    try {
+        const result = await apiCall('/api/apply', 'POST');
+        showAlert(`Successfully applied ${result.results.applied} descriptions! Errors: ${result.results.errors}`, 'success');
+        setTimeout(() => location.reload(), 2000);
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'error');
+        btn.disabled = false;
+        btn.textContent = 'Apply to UC';
+    }
+}
+</script>
+{% endblock %}

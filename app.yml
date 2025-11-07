@@ -1,0 +1,11 @@
+command:
+  - "python"
+  - "app/main.py"
+
+name: uc-description-generator
+
+resources:
+  - name: warehouse
+    description: SQL warehouse for UC operations
+    warehouse:
+      id: "{{warehouse_id}}"

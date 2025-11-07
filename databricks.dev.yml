@@ -1,0 +1,9 @@
+# Development environment variables
+# Copy this to databricks.prod.yml and update values for production
+
+variables:
+  warehouse_id: "YOUR_DEV_WAREHOUSE_ID"  # Update with your dev warehouse ID
+  target_catalog: "main"
+  governance_schema: "governance"
+  model_endpoint: "databricks-meta-llama-3-1-70b-instruct"
+  flask_secret_key: "dev-secret-key-not-for-production"
