@@ -9,63 +9,62 @@
 [![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Documentation](#-documentation) • [Demo](#-screenshots) • [Deploy](#-deployment)
+[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Screenshots](#screenshots) • [Deploy](#deployment)
 
 </div>
 
 ---
 
-## 🎯 Overview
+## Overview
 
 A production-ready Databricks App that automatically generates, reviews, and applies table and column descriptions across Unity Catalog at scale using Foundation Model API (Llama 3.1 70B).
 
-**Built for**: CarMax
-**Use Case**: Document ~1000 tables for compliance
+**Use Case**: Document 1000+ tables for compliance
 **Deployment**: Databricks Apps with DABs support
 
 ---
 
-## ✨ Features
+## Features
 
-### 🤖 AI-Powered Generation
+### AI-Powered Generation
 - Automatically generates descriptions using Databricks Foundation Models
 - Context-aware prompts with column types, sample data, and table structure
 - Batch processing for 1000+ tables
 - Multiple model support (Llama 3.1 70B, DBRX, 405B)
 
-### 🌐 Dynamic Selection
+### Dynamic Selection
 - **Catalog dropdown**: Select any accessible catalog
 - **Schema dropdown**: Filtered by selected catalog
 - **Table selection**: Bulk mode OR specific table checkboxes
 - Real-time permission validation
 
-### 👥 Human-in-the-Loop Review
+### Human-in-the-Loop Review
 - Beautiful UI for reviewing AI-generated descriptions
 - Inline editing before approval
 - Reviewer tracking for audit trail
 - One-click approve/reject
 
-### 🔒 Permission Checking
+### Permission Checking
 - Automatic validation of UC permissions
 - Visual feedback (green = access granted, red = denied)
 - Shows current user identity
 - Lists specific permission errors
 
-### 📊 Compliance Dashboard
+### Compliance Dashboard
 - Real-time progress tracking
 - A-F compliance scoring
 - Interactive charts and visualizations
 - Schema-level completion rates
 - Export capabilities
 
-### 🚀 Deployment Options
+### Deployment Options
 - **DABs**: Modern, CI/CD-friendly deployment
 - **Multi-workspace**: Regional deployment support
 - **Environment management**: Dev/staging/prod separation
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 React Frontend (Vite + TailwindCSS)
@@ -87,7 +86,7 @@ Model API     (via SQL Warehouse)
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Databricks workspace with Unity Catalog
@@ -129,7 +128,7 @@ databricks apps get uc-description-generator-prod
 
 ---
 
-## 📖 Documentation
+## Documentation
 
 ### Getting Started
 - **[README.md](README.md)** - Complete feature overview
@@ -151,7 +150,7 @@ databricks apps get uc-description-generator-prod
 
 ---
 
-## 🎨 Screenshots
+## Screenshots
 
 ### Dashboard
 ![Dashboard](docs/dashboard.png)
@@ -171,7 +170,7 @@ databricks apps get uc-description-generator-prod
 
 ---
 
-## 📋 Workflow
+## Workflow
 
 ```
 1. SELECT CATALOG/SCHEMA → 2. CHECK PERMISSIONS → 3. CHOOSE MODE → 4. GENERATE
@@ -193,7 +192,7 @@ databricks apps get uc-description-generator-prod
 
 ---
 
-## 🌍 Global Deployment
+## Global Deployment
 
 ### Single Workspace, Multi-Catalog
 ```bash
@@ -220,7 +219,7 @@ databricks bundle deploy --target prod --profile apac-prod
 
 ---
 
-## 🔐 Security & Compliance
+## Security & Compliance
 
 ### Authentication
 - OAuth-based authentication via Databricks SDK
@@ -255,7 +254,7 @@ GROUP BY reviewer;
 
 ---
 
-## 📊 Performance
+## Performance
 
 - **Generation**: ~2-5 seconds per table (including columns)
 - **Review**: Manual (depends on SME availability)
@@ -269,7 +268,7 @@ GROUP BY reviewer;
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
 ### Multi-Tenant Organization
 ```
@@ -294,7 +293,7 @@ APAC Region → Deploy to apac-workspace
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -320,7 +319,7 @@ MODEL_ENDPOINT = os.environ.get('MODEL_ENDPOINT', 'databricks-dbrx-instruct')
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Permission Denied
 ```sql
@@ -343,9 +342,9 @@ response = requests.post(url, headers=headers, json=payload, timeout=60)
 
 ---
 
-## 📈 Roadmap
+## Roadmap
 
-### Phase 1 (Current) ✅
+### Phase 1 (Current)
 - AI-powered description generation
 - Dynamic catalog/schema/table selection
 - Permission checking
@@ -368,9 +367,9 @@ response = requests.post(url, headers=headers, json=payload, timeout=60)
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
-This is an internal CarMax project. For questions or improvements:
+For questions or improvements:
 
 1. Create an issue
 2. Fork the repository
@@ -379,48 +378,46 @@ This is an internal CarMax project. For questions or improvements:
 
 ---
 
-## 📄 License
+## License
 
-Internal use only - CarMax proprietary
+Apache 2.0
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
-- **CarMax** - Business requirement and use case
 - **Databricks** - Foundation Model API and Unity Catalog
 - **Open Source Community** - React, TailwindCSS, and dependencies
 
 ---
 
-## 📞 Support
+## Support
 
 ### Documentation
-- Full documentation in `/docs` folder
+- Full documentation in repository
 - API reference in `ARCHITECTURE.md`
 - Troubleshooting in `DEPLOYMENT.md`
 
 ### Contact
-- **Internal**: Contact CarMax Data Platform team
 - **Databricks**: Your Solutions Architect
 - **Issues**: [GitHub Issues](https://github.com/lawrence-kyei-databricks/uc-description-generator/issues)
 
 ---
 
-## 🏆 Success Metrics
+## Success Metrics
 
-- ✅ **95% time savings** vs manual documentation
-- ✅ **1000+ tables** documented at scale
-- ✅ **Single deployment** works globally
-- ✅ **Full audit trail** for compliance
-- ✅ **Modern UI** for great user experience
+- **95% time savings** vs manual documentation
+- **1000+ tables** documented at scale
+- **Single deployment** works globally
+- **Full audit trail** for compliance
+- **Modern UI** for great user experience
 
 ---
 
 <div align="center">
 
-**Built for CarMax | Powered by Databricks Foundation Models**
+**Powered by Databricks Foundation Models**
 
-[⬆ Back to Top](#unity-catalog-description-generator)
+[Back to Top](#unity-catalog-description-generator)
 
 </div>
