@@ -1,7 +1,7 @@
 command:
   - "gunicorn"
   - "--bind"
-  - "0.0.0.0:8080"
+  - "0.0.0.0:8000"
   - "--workers"
   - "1"
   - "--timeout"
@@ -27,5 +27,3 @@ env:
     value: "8baced1ff014912d"
   - name: FLASK_SECRET_KEY
     value: "dev-secret-key-not-for-production"
-  - name: PORT
-    value: "8080"
