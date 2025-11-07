@@ -513,59 +513,6 @@ Description:"""
 service = DescriptionService()
 
 
-# Routes
-@app.route('/')
-def index():
-    """Main dashboard"""
-    try:
-        stats = service.get_statistics()
-        schema_progress = service.get_schema_progress()
-
-        return render_template('index.html',
-                             stats=stats,
-                             schema_progress=schema_progress)
-    except Exception as e:
-        return render_template('error.html', error=str(e))
-
-
-@app.route('/generate')
-def generate_page():
-    """Generation page"""
-    return render_template('generate.html')
-
-
-@app.route('/review')
-def review_page():
-    """Review page"""
-    try:
-        page = int(request.args.get('page', 1))
-        per_page = 20
-        offset = (page - 1) * per_page
-
-        pending = service.get_pending_reviews(limit=per_page, offset=offset)
-
-        return render_template('review.html',
-                             pending=pending,
-                             page=page,
-                             per_page=per_page)
-    except Exception as e:
-        return render_template('error.html', error=str(e))
-
-
-@app.route('/compliance')
-def compliance_page():
-    """Compliance dashboard"""
-    try:
-        stats = service.get_statistics()
-        schema_progress = service.get_schema_progress()
-
-        return render_template('compliance.html',
-                             stats=stats,
-                             schema_progress=schema_progress)
-    except Exception as e:
-        return render_template('error.html', error=str(e))
-
-
 # API Endpoints
 @app.route('/api/setup', methods=['POST'])
 def api_setup():
