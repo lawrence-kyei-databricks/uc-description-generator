@@ -575,8 +575,17 @@ Description:"""
         return {'applied': applied_count, 'errors': error_count}
 
 
-# Initialize service
-service = DescriptionService()
+# Lazy initialize service (will be created on first request)
+_service = None
+
+def get_service():
+    """Get or create DescriptionService instance"""
+    global _service
+    if _service is None:
+        print("Initializing DescriptionService...")
+        _service = DescriptionService()
+        print("DescriptionService initialized successfully")
+    return _service
 
 
 # API Endpoints
@@ -584,7 +593,7 @@ service = DescriptionService()
 def api_setup():
     """Setup governance table"""
     try:
-        service.setup_governance_table()
+        get_service().setup_governance_table()
         return jsonify({'success': True, 'message': 'Governance table created'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -601,7 +610,7 @@ def api_generate():
         batch_size = data.get('batch_size', 10)
 
         # Check permissions first
-        perms = service.check_permissions(catalog, schema)
+        perms = get_service().check_permissions(catalog, schema)
         if not perms['can_select'] or not perms['can_modify']:
             return jsonify({
                 'success': False,
@@ -611,11 +620,11 @@ def api_generate():
         # Get tables to process
         if tables_list:
             # Filter for specific tables
-            all_tables = service.get_tables_for_generation(catalog, schema)
+            all_tables = get_service().get_tables_for_generation(catalog, schema)
             tables_to_process = [t for t in all_tables if t['table_name'] in tables_list]
         else:
             # Get all tables (up to batch size)
-            tables = service.get_tables_for_generation(catalog, schema)
+            tables = get_service().get_tables_for_generation(catalog, schema)
             tables_to_process = tables[:batch_size]
 
         results = {
@@ -633,9 +642,9 @@ def api_generate():
 
             try:
                 # Generate table description
-                table_desc = service.generate_table_description(cat, sch, tbl)
+                table_desc = get_service().generate_table_description(cat, sch, tbl)
                 if not table_desc.startswith('ERROR:'):
-                    service.store_generated_description('TABLE', cat, sch, tbl, None, None, table_desc)
+                    get_service().store_generated_description('TABLE', cat, sch, tbl, None, None, table_desc)
                     results['generated'] += 1
                     results['items'].append({
                         'type': 'TABLE',
@@ -644,19 +653,19 @@ def api_generate():
                     })
 
                 # Generate column descriptions
-                metadata = service.get_table_metadata(cat, sch, tbl)
+                metadata = get_service().get_table_metadata(cat, sch, tbl)
                 for col in metadata['columns']:
                     if not col.get('comment'):
                         sample_values = None
                         if metadata['sample_data']:
                             sample_values = [row.get(col['column_name']) for row in metadata['sample_data']]
 
-                        col_desc = service.generate_column_description(
+                        col_desc = get_service().generate_column_description(
                             cat, sch, tbl, col['column_name'], col['data_type'], sample_values
                         )
 
                         if not col_desc.startswith('ERROR:'):
-                            service.store_generated_description(
+                            get_service().store_generated_description(
                                 'COLUMN', cat, sch, tbl, col['column_name'], col['data_type'], col_desc
                             )
                             results['generated'] += 1
@@ -682,7 +691,7 @@ def api_review(record_id):
         approved_desc = data.get('approved_description')
         reviewer = data.get('reviewer', 'unknown')
 
-        service.update_review_status(record_id, status, approved_desc, reviewer)
+        get_service().update_review_status(record_id, status, approved_desc, reviewer)
 
         return jsonify({'success': True, 'message': f'Review status updated to {status}'})
 
@@ -694,7 +703,7 @@ def api_review(record_id):
 def api_apply():
     """Apply approved descriptions to UC"""
     try:
-        results = service.apply_approved_descriptions()
+        results = get_service().apply_approved_descriptions()
         return jsonify({'success': True, 'results': results})
 
     except Exception as e:
@@ -705,7 +714,7 @@ def api_apply():
 def api_stats():
     """Get statistics"""
     try:
-        stats = service.get_statistics()
+        stats = get_service().get_statistics()
         return jsonify({'success': True, 'stats': stats})
 
     except Exception as e:
@@ -716,7 +725,7 @@ def api_stats():
 def api_catalogs():
     """Get list of accessible catalogs"""
     try:
-        catalogs = service.get_catalogs()
+        catalogs = get_service().get_catalogs()
         return jsonify({'success': True, 'catalogs': catalogs})
 
     except Exception as e:
@@ -731,7 +740,7 @@ def api_schemas():
         if not catalog:
             return jsonify({'success': False, 'error': 'catalog parameter required'}), 400
 
-        schemas = service.get_schemas(catalog)
+        schemas = get_service().get_schemas(catalog)
         return jsonify({'success': True, 'schemas': schemas})
 
     except Exception as e:
@@ -751,7 +760,7 @@ def api_tables():
             return jsonify({'success': False, 'error': 'catalog and schema parameters required'}), 400
 
         print(f"Fetching tables for {catalog}.{schema}")
-        tables = service.get_tables(catalog, schema)
+        tables = get_service().get_tables(catalog, schema)
         print(f"Found {len(tables)} tables")
         return jsonify({'success': True, 'tables': tables})
 
@@ -772,7 +781,7 @@ def api_permissions():
         if not catalog or not schema:
             return jsonify({'success': False, 'error': 'catalog and schema required'}), 400
 
-        permissions = service.check_permissions(catalog, schema, table)
+        permissions = get_service().check_permissions(catalog, schema, table)
         return jsonify({'success': True, 'permissions': permissions})
 
     except Exception as e:
@@ -786,7 +795,7 @@ def api_pending():
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 20))
 
-        pending = service.get_pending_reviews(limit=per_page, offset=(page-1)*per_page)
+        pending = get_service().get_pending_reviews(limit=per_page, offset=(page-1)*per_page)
 
         return jsonify({'success': True, 'pending': pending, 'page': page})
 
@@ -798,7 +807,7 @@ def api_pending():
 def api_schema_progress():
     """Get progress by schema"""
     try:
-        progress = service.get_schema_progress()
+        progress = get_service().get_schema_progress()
         return jsonify({'success': True, 'schema_progress': progress})
 
     except Exception as e:
@@ -822,7 +831,7 @@ def api_review_activity():
         ORDER BY reviewer, review_status
         """
 
-        activity = service.execute_sql(query)
+        activity = get_service().execute_sql(query)
         return jsonify({'success': True, 'activity': activity})
 
     except Exception as e:
@@ -856,7 +865,7 @@ def api_coverage():
         ORDER BY pct_complete DESC
         """
 
-        coverage = service.execute_sql(query)
+        coverage = get_service().execute_sql(query)
         return jsonify({'success': True, 'coverage': coverage})
 
     except Exception as e:
