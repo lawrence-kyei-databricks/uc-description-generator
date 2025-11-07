@@ -2,8 +2,6 @@
 
 <div align="center">
 
-![CarMax](frontend/src/assets/carmax-logo.png)
-
 **AI-Powered Table & Column Documentation for Unity Catalog**
 
 [![Databricks](https://img.shields.io/badge/Databricks-FF3621?style=for-the-badge&logo=databricks&logoColor=white)](https://databricks.com)
