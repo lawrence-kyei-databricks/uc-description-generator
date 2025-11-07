@@ -183,19 +183,26 @@ class DescriptionService:
     def execute_sql(self, query: str, warehouse_id: str = WAREHOUSE_ID) -> List[Dict]:
         """Execute SQL and return results"""
         try:
+            print(f"Executing SQL query (warehouse: {warehouse_id})")
             statement = self.w.statement_execution.execute_statement(
                 statement=query,
                 warehouse_id=warehouse_id,
-                wait_timeout='30s'
+                wait_timeout='50s'
             )
 
-            # Wait for completion
+            # Wait for completion with timeout
+            max_wait = 45  # Maximum 45 seconds
+            elapsed = 0
             while statement.status.state in [StatementState.PENDING, StatementState.RUNNING]:
+                if elapsed >= max_wait:
+                    raise Exception(f"Query timeout after {max_wait} seconds")
                 time.sleep(1)
+                elapsed += 1
                 statement = self.w.statement_execution.get_statement(statement.statement_id)
 
             if statement.status.state != StatementState.SUCCEEDED:
-                raise Exception(f"Query failed: {statement.status.error}")
+                error_msg = statement.status.error if statement.status.error else "Unknown error"
+                raise Exception(f"Query failed: {error_msg}")
 
             # Parse results
             if not statement.result or not statement.result.data_array:
@@ -209,6 +216,7 @@ class DescriptionService:
             for row in statement.result.data_array:
                 results.append(dict(zip(columns, row)))
 
+            print(f"SQL query returned {len(results)} rows")
             return results
 
         except Exception as e:
@@ -737,13 +745,18 @@ def api_tables():
         catalog = request.args.get('catalog')
         schema = request.args.get('schema')
 
+        print(f"API /api/tables called: catalog={catalog}, schema={schema}")
+
         if not catalog or not schema:
             return jsonify({'success': False, 'error': 'catalog and schema parameters required'}), 400
 
+        print(f"Fetching tables for {catalog}.{schema}")
         tables = service.get_tables(catalog, schema)
+        print(f"Found {len(tables)} tables")
         return jsonify({'success': True, 'tables': tables})
 
     except Exception as e:
+        print(f"ERROR in /api/tables: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
