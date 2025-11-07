@@ -32,7 +32,7 @@ yarn-error.log*
 
 # Frontend build
 frontend/dist/
-static/
+# static/ - MUST be committed for Databricks Apps deployment
 
 # Environment
 .env
