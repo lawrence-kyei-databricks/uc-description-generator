@@ -115,7 +115,27 @@ cp databricks.dev.yml databricks.prod.yml
 # 4. Deploy
 databricks bundle deploy --target prod
 
-# 5. Get app URL
+# 5. Create governance table
+# Run setup_governance.sql in your Databricks SQL editor
+
+# 6. Grant Service Principal permissions
+databricks apps get uc-description-generator-prod
+# Note the service_principal_client_id from output
+
+# Run these SQL commands (replace <SP_ID> with your service principal ID):
+# GRANT USE CATALOG ON CATALOG `main` TO `<SP_ID>`;
+# GRANT USE SCHEMA ON SCHEMA `main`.`governance` TO `<SP_ID>`;
+# GRANT SELECT, MODIFY ON TABLE `main`.`governance`.`description_governance` TO `<SP_ID>`;
+#
+# Grant access to schemas you want to document:
+# GRANT USE SCHEMA ON SCHEMA `main`.`<your_schema>` TO `<SP_ID>`;
+# GRANT SELECT ON SCHEMA `main`.`<your_schema>` TO `<SP_ID>`;
+# GRANT MODIFY ON SCHEMA `main`.`<your_schema>` TO `<SP_ID>`;
+
+# Also grant SQL Warehouse access via Databricks UI:
+# SQL Warehouses → Select your warehouse → Permissions → Add SP with "Can Use"
+
+# 7. Get app URL
 databricks apps get uc-description-generator-prod
 ```
 
@@ -221,6 +241,35 @@ databricks bundle deploy --target prod --profile apac-prod
 
 ## Security & Compliance
 
+### Service Principal Setup (Critical)
+
+**⚠️ IMPORTANT**: After deployment, you MUST grant the app's Service Principal access to resources.
+
+```bash
+# 1. Get Service Principal ID
+databricks apps get uc-description-generator-dev --profile <your-profile>
+# Look for: "service_principal_client_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+
+# 2. Run these SQL grants (replace <SP_ID> with your actual ID)
+GRANT USE CATALOG ON CATALOG `main` TO `<SP_ID>`;
+GRANT USE SCHEMA ON SCHEMA `main`.`governance` TO `<SP_ID>`;
+GRANT SELECT, MODIFY ON TABLE `main`.`governance`.`description_governance` TO `<SP_ID>`;
+
+# 3. Grant access to schemas you want to document
+GRANT USE SCHEMA ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
+GRANT SELECT ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
+GRANT MODIFY ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
+
+# 4. Grant SQL Warehouse access via UI
+# Go to: SQL Warehouses → Select warehouse → Permissions tab
+# Add: Service Principal ID with "Can Use" permission
+```
+
+**Without these permissions, the app will not be able to:**
+- Access Unity Catalog metadata
+- Store generated descriptions
+- Apply descriptions to tables/columns
+
 ### Authentication
 - OAuth-based authentication via Databricks SDK
 - No hardcoded credentials
@@ -321,8 +370,36 @@ MODEL_ENDPOINT = os.environ.get('MODEL_ENDPOINT', 'databricks-dbrx-instruct')
 
 ## Troubleshooting
 
-### Permission Denied
+### App Shows "Not Found" or 404 Error
+**Issue**: Static files not deployed
+```bash
+# Solution: Ensure static/ is committed and rebuild
+git add static/
+git commit -m "Add static files"
+cd frontend && npm run build && cd ..
+databricks bundle deploy --target dev
+```
+
+### Service Principal Permission Denied
+**Issue**: App can't access Unity Catalog
+```bash
+# Solution: Grant SP permissions (replace <SP_ID> with actual ID from databricks apps get)
+databricks apps get uc-description-generator-dev
+
+# Then run:
+GRANT USE CATALOG ON CATALOG `main` TO `<SP_ID>`;
+GRANT USE SCHEMA ON SCHEMA `main`.`governance` TO `<SP_ID>`;
+GRANT SELECT, MODIFY ON TABLE `main`.`governance`.`description_governance` TO `<SP_ID>`;
+GRANT USE SCHEMA ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
+GRANT SELECT, MODIFY ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
+
+# Also grant SQL Warehouse "Can Use" permission via UI
+```
+
+### User Permission Denied
+**Issue**: User can't see certain catalogs/schemas
 ```sql
+-- Grant user access (run as admin)
 GRANT USE CATALOG ON CATALOG main TO `user@company.com`;
 GRANT USE SCHEMA ON SCHEMA main.governance TO `user@company.com`;
 GRANT SELECT, MODIFY ON SCHEMA main.* TO `user@company.com`;
@@ -338,6 +415,19 @@ databricks bundle deploy --target dev
 ```python
 # Edit app/main.py
 response = requests.post(url, headers=headers, json=payload, timeout=60)
+```
+
+### App Crashes on Startup
+**Issue**: Missing environment variables
+```bash
+# Check app logs
+databricks apps get uc-description-generator-dev
+
+# Verify app.yml has:
+# - WAREHOUSE_ID
+# - FLASK_SECRET_KEY
+# - TARGET_CATALOG
+# - GOVERNANCE_SCHEMA
 ```
 
 ---
