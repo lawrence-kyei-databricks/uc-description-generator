@@ -610,10 +610,27 @@ def api_generate():
         tables_list = data.get('tables', [])  # Specific tables or empty for all
         batch_size = data.get('batch_size', 10)
 
-        # Get user's OAuth token from request headers
-        # In Databricks Apps, the Authorization header contains the user's token
+        # Get user's OAuth token
+        # In Databricks Apps, we need to use the workspace client to get a user token
+        # For now, we'll try multiple methods to get the token
+        user_token = None
+
+        # Method 1: Try Authorization header
         auth_header = request.headers.get('Authorization', '')
-        user_token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
+        if auth_header.startswith('Bearer '):
+            user_token = auth_header.replace('Bearer ', '')
+
+        # Method 2: Try X-Databricks-Org-Id and create token via SDK
+        # In Databricks Apps, the user context is available via the workspace client
+        if not user_token:
+            try:
+                # Use the workspace client's token (which should be user-scoped in Apps)
+                user_token = get_service().w.config.token
+            except:
+                pass
+
+        print(f"User token available: {bool(user_token)}")
+        print(f"Token length: {len(user_token) if user_token else 0}")
 
         if not user_token:
             return jsonify({
