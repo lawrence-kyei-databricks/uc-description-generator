@@ -615,17 +615,17 @@ def api_generate():
             }), 403
 
         # Get tables to process
+        all_tables = get_service().get_tables_for_generation(catalog, schema)
+
         if tables_list:
             # Filter for specific tables
-            all_tables = get_service().get_tables_for_generation(catalog, schema)
             tables_to_process = [t for t in all_tables if t['table_name'] in tables_list]
         else:
             # Get all tables (up to batch size)
-            tables = get_service().get_tables_for_generation(catalog, schema)
-            tables_to_process = tables[:batch_size]
+            tables_to_process = all_tables[:batch_size]
 
         results = {
-            'total_found': len(tables),
+            'total_found': len(all_tables),
             'processing': len(tables_to_process),
             'generated': 0,
             'errors': 0,
