@@ -639,7 +639,10 @@ def api_generate():
 
             try:
                 # Generate table description
+                print(f"Generating description for {cat}.{sch}.{tbl}")
                 table_desc = get_service().generate_table_description(cat, sch, tbl)
+                print(f"Table description result: {table_desc[:100]}...")
+
                 if not table_desc.startswith('ERROR:'):
                     get_service().store_generated_description('TABLE', cat, sch, tbl, None, None, table_desc)
                     results['generated'] += 1
@@ -648,6 +651,14 @@ def api_generate():
                         'path': f"{cat}.{sch}.{tbl}",
                         'description': table_desc[:100] + '...'
                     })
+                else:
+                    results['errors'] += 1
+                    results['items'].append({
+                        'type': 'TABLE',
+                        'path': f"{cat}.{sch}.{tbl}",
+                        'error': table_desc
+                    })
+                    print(f"Table description failed: {table_desc}")
 
                 # Generate column descriptions
                 metadata = get_service().get_table_metadata(cat, sch, tbl)
@@ -666,12 +677,21 @@ def api_generate():
                                 'COLUMN', cat, sch, tbl, col['column_name'], col['data_type'], col_desc
                             )
                             results['generated'] += 1
+                        else:
+                            results['errors'] += 1
+                            print(f"Column {col['column_name']} generation failed: {col_desc}")
 
                 time.sleep(0.5)  # Rate limiting
 
             except Exception as e:
                 results['errors'] += 1
-                print(f"Error processing {cat}.{sch}.{tbl}: {e}")
+                error_msg = f"Error processing {cat}.{sch}.{tbl}: {str(e)}"
+                print(error_msg)
+                results['items'].append({
+                    'type': 'TABLE',
+                    'path': f"{cat}.{sch}.{tbl}",
+                    'error': str(e)
+                })
 
         return jsonify({'success': True, 'results': results})
 
