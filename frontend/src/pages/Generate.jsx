@@ -8,8 +8,6 @@ export default function Generate() {
   const [catalog, setCatalog] = useState('')
   const [schema, setSchema] = useState('')
   const [selectedTables, setSelectedTables] = useState([])
-  const [bulkMode, setBulkMode] = useState(true) // true = all tables, false = specific tables
-  const [batchSize, setBatchSize] = useState(50)
   const [results, setResults] = useState(null)
   const [permissions, setPermissions] = useState(null)
   const queryClient = useQueryClient()
@@ -99,21 +97,18 @@ export default function Generate() {
       return
     }
 
-    const params = {
-      catalog,
-      schema,
-      batch_size: bulkMode ? batchSize : undefined,
-      tables: bulkMode ? [] : selectedTables,
-    }
-
-    if (!bulkMode && selectedTables.length === 0) {
+    if (selectedTables.length === 0) {
       alert('Please select at least one table')
       return
     }
 
-    const confirmMsg = bulkMode
-      ? `Generate descriptions for up to ${batchSize} tables in ${catalog}.${schema}?`
-      : `Generate descriptions for ${selectedTables.length} selected table(s)?`
+    const params = {
+      catalog,
+      schema,
+      tables: selectedTables,
+    }
+
+    const confirmMsg = `Generate descriptions for ${selectedTables.length} selected table(s)?`
 
     if (confirm(confirmMsg)) {
       setResults(null)
@@ -226,121 +221,37 @@ export default function Generate() {
         )}
       </div>
 
-      {/* Mode Selection */}
+      {/* Table Selection */}
       {catalog && schema && permissions?.can_modify && (
         <div className="card">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">2. Choose Mode</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setBulkMode(true)}
-              className={`p-6 rounded-lg border-2 transition-all text-left ${
-                bulkMode
-                  ? 'border-databricks-red bg-red-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <Database className="w-8 h-8 text-databricks-red mb-3" />
-              <h4 className="font-bold text-lg text-gray-900 mb-2">Bulk Mode</h4>
-              <p className="text-sm text-gray-600">
-                Generate for all tables in schema (up to batch size limit)
-              </p>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setBulkMode(false)}
-              className={`p-6 rounded-lg border-2 transition-all text-left ${
-                !bulkMode
-                  ? 'border-databricks-red bg-red-50'
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              <TableIcon className="w-8 h-8 text-databricks-red mb-3" />
-              <h4 className="font-bold text-lg text-gray-900 mb-2">Select Tables</h4>
-              <p className="text-sm text-gray-600">
-                Choose specific tables to generate descriptions for
-              </p>
-            </motion.button>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk Mode Configuration */}
-      {bulkMode && catalog && schema && permissions?.can_modify && (
-        <div className="card">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6">3. Configure Batch</h3>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Batch Size (max tables to process)
-            </label>
-            <div className="flex items-center space-x-4">
-              <input
-                type="range"
-                min="1"
-                max="100"
-                value={batchSize}
-                onChange={(e) => setBatchSize(parseInt(e.target.value))}
-                className="flex-1"
-              />
-              <span className="text-2xl font-bold text-databricks-red w-16 text-center">
-                {batchSize}
-              </span>
-            </div>
-            <p className="text-sm text-gray-500 mt-2">
-              Found {tables.length} table(s) in {catalog}.{schema}
-            </p>
-          </div>
-
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={handleGenerate}
-            disabled={generateMutation.isPending || !canGenerate}
-            className="w-full btn btn-primary flex items-center justify-center space-x-2 py-4 text-lg mt-6"
-          >
-            {generateMutation.isPending ? (
-              <>
-                <Loader className="w-5 h-5 animate-spin" />
-                <span>Generating...</span>
-              </>
-            ) : (
-              <>
-                <Sparkles className="w-5 h-5" />
-                <span>Generate Descriptions</span>
-              </>
-            )}
-          </motion.button>
-        </div>
-      )}
-
-      {/* Table Selection Mode */}
-      {!bulkMode && catalog && schema && permissions?.can_modify && (
-        <div className="card">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-2xl font-bold text-gray-900">3. Select Tables</h3>
+            <h3 className="text-2xl font-bold text-gray-900">2. Select Tables</h3>
             <div className="flex space-x-2">
               <button
                 onClick={handleSelectAll}
                 className="btn btn-secondary text-sm"
+                disabled={tables.length === 0}
               >
                 Select All
               </button>
               <button
                 onClick={handleDeselectAll}
                 className="btn btn-secondary text-sm"
+                disabled={selectedTables.length === 0}
               >
                 Deselect All
               </button>
             </div>
           </div>
 
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {tables.map((table) => (
+          {tables.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <Loader className="w-8 h-8 animate-spin mx-auto mb-4" />
+              <p>Loading tables from {catalog}.{schema}...</p>
+            </div>
+          ) : (
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {tables.map((table) => (
               <label
                 key={table.table_name}
                 className="flex items-center p-4 bg-gray-50 hover:bg-gray-100 rounded-lg cursor-pointer transition-colors"
@@ -367,13 +278,16 @@ export default function Generate() {
                 )}
               </label>
             ))}
-          </div>
+            </div>
+          )}
 
-          <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-blue-900">
-              <strong>{selectedTables.length}</strong> table(s) selected
-            </p>
-          </div>
+          {tables.length > 0 && (
+            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-900">
+                <strong>{selectedTables.length}</strong> of <strong>{tables.length}</strong> table(s) selected
+              </p>
+            </div>
+          )}
 
           <motion.button
             whileHover={{ scale: 1.02 }}
