@@ -306,89 +306,58 @@ class DescriptionService:
             'sample_data': sample_data
         }
 
-    def call_foundation_model(self, prompt: str, user_token: str = None) -> str:
-        """Call Foundation Model API using user's OAuth token"""
+    def call_ai_function(self, prompt: str) -> str:
+        """Call Databricks SQL AI Function - works with Service Principal auth"""
         try:
-            # Get workspace URL
-            workspace_url = self.w.config.host
+            # Escape single quotes in prompt
+            escaped_prompt = self._escape_sql_string(prompt)
 
-            # Use user's token if provided, otherwise fall back to service principal
-            # (user token is required for Foundation Model API)
-            if not user_token:
-                return "ERROR: User authentication token required for Foundation Model API"
+            # Use SQL AI function which works with SP authentication
+            query = f"""
+            SELECT ai_query(
+                '{MODEL_ENDPOINT}',
+                '{escaped_prompt}'
+            ) as response
+            """
 
-            url = f"{workspace_url}/serving-endpoints/{MODEL_ENDPOINT}/invocations"
-
-            headers = {
-                'Authorization': f'Bearer {user_token}',
-                'Content-Type': 'application/json'
-            }
-
-            payload = {
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 200,
-                "temperature": 0.3
-            }
-
-            response = requests.post(url, headers=headers, json=payload, timeout=30)
-            response.raise_for_status()
-
-            result = response.json()
-            return result['choices'][0]['message']['content'].strip()
+            result = self.execute_sql(query)
+            if result and len(result) > 0 and 'response' in result[0]:
+                return result[0]['response'].strip()
+            else:
+                return "ERROR: No response from AI function"
 
         except Exception as e:
             return f"ERROR: {str(e)}"
 
-    def generate_table_description(self, catalog: str, schema: str, table: str, user_token: str = None) -> str:
+    def generate_table_description(self, catalog: str, schema: str, table: str) -> str:
         """Generate description for a table"""
         metadata = self.get_table_metadata(catalog, schema, table)
 
         columns_info = "\n".join([
             f"  - {col['column_name']} ({col['data_type']})"
-            for col in metadata['columns']
+            for col in metadata['columns'][:10]  # Limit to first 10 columns to avoid prompt size issues
         ])
 
         sample_info = ""
         if metadata['sample_data']:
-            sample_info = f"\n\nSample data (first 3 rows):\n{json.dumps(metadata['sample_data'][:3], indent=2, default=str)}"
+            sample_info = f" Sample data shows {len(metadata['sample_data'])} rows."
 
-        prompt = f"""You are a data documentation expert. Generate a clear, concise description for this database table.
+        prompt = f"Generate a 1-2 sentence description for table {catalog}.{schema}.{table} with columns: {columns_info}.{sample_info} What data does this table contain and what is its purpose?"
 
-Table: {catalog}.{schema}.{table}
-
-Columns:
-{columns_info}
-{sample_info}
-
-Generate a 1-2 sentence description explaining:
-1. What data this table contains
-2. The primary purpose or use case
-
-Description:"""
-
-        return self.call_foundation_model(prompt, user_token)
+        return self.call_ai_function(prompt)
 
     def generate_column_description(self, catalog: str, schema: str, table: str,
-                                   column_name: str, column_type: str, sample_values: List = None, user_token: str = None) -> str:
+                                   column_name: str, column_type: str, sample_values: List = None) -> str:
         """Generate description for a column"""
         sample_info = ""
         if sample_values:
-            values = [str(v) for v in sample_values if v is not None][:5]
+            values = [str(v) for v in sample_values if v is not None][:3]
             if values:
-                sample_info = f"\n\nSample values: {', '.join(values)}"
+                sample_info = f" Sample values: {', '.join(values)}."
 
-        prompt = f"""You are a data documentation expert. Generate a clear, concise description for this database column.
+        prompt = f"Generate a 1-sentence description for column {column_name} ({column_type}) in table {catalog}.{schema}.{table}.{sample_info} What does this column represent?"
 
-Table: {catalog}.{schema}.{table}
-Column: {column_name}
-Data Type: {column_type}
-{sample_info}
-
-Generate a brief 1-sentence description explaining what this column represents and its purpose.
-
-Description:"""
-
-        return self.call_foundation_model(prompt, user_token)
+        return self.call_ai_function(prompt)
 
     def store_generated_description(self, object_type: str, catalog: str, schema: str,
                                    table: str, column: Optional[str], column_type: Optional[str],
@@ -610,34 +579,6 @@ def api_generate():
         tables_list = data.get('tables', [])  # Specific tables or empty for all
         batch_size = data.get('batch_size', 10)
 
-        # Get user's OAuth token
-        # In Databricks Apps, we need to use the workspace client to get a user token
-        # For now, we'll try multiple methods to get the token
-        user_token = None
-
-        # Method 1: Try Authorization header
-        auth_header = request.headers.get('Authorization', '')
-        if auth_header.startswith('Bearer '):
-            user_token = auth_header.replace('Bearer ', '')
-
-        # Method 2: Try X-Databricks-Org-Id and create token via SDK
-        # In Databricks Apps, the user context is available via the workspace client
-        if not user_token:
-            try:
-                # Use the workspace client's token (which should be user-scoped in Apps)
-                user_token = get_service().w.config.token
-            except:
-                pass
-
-        print(f"User token available: {bool(user_token)}")
-        print(f"Token length: {len(user_token) if user_token else 0}")
-
-        if not user_token:
-            return jsonify({
-                'success': False,
-                'error': 'User authentication required'
-            }), 401
-
         # Check permissions first
         perms = get_service().check_permissions(catalog, schema)
         if not perms['can_select'] or not perms['can_modify']:
@@ -670,9 +611,9 @@ def api_generate():
             tbl = table_info['table_name']
 
             try:
-                # Generate table description with user's token
+                # Generate table description using SQL AI function
                 print(f"Generating description for {cat}.{sch}.{tbl}")
-                table_desc = get_service().generate_table_description(cat, sch, tbl, user_token)
+                table_desc = get_service().generate_table_description(cat, sch, tbl)
                 print(f"Table description result: {table_desc[:100]}...")
 
                 if not table_desc.startswith('ERROR:'):
@@ -701,7 +642,7 @@ def api_generate():
                             sample_values = [row.get(col['column_name']) for row in metadata['sample_data']]
 
                         col_desc = get_service().generate_column_description(
-                            cat, sch, tbl, col['column_name'], col['data_type'], sample_values, user_token
+                            cat, sch, tbl, col['column_name'], col['data_type'], sample_values
                         )
 
                         if not col_desc.startswith('ERROR:'):

@@ -15,7 +15,7 @@ targets:
     resources:
       apps:
         uc_description_generator_app:
-          name: uc-description-generator-dev
+          name: uc-description-generator
           description: "UC Description Generator - Development"
           source_code_path: .
 

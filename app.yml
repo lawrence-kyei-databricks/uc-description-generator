@@ -17,7 +17,7 @@ env:
   - name: GOVERNANCE_SCHEMA
     value: "governance"
   - name: MODEL_ENDPOINT
-    value: "databricks-meta-llama-3-1-70b-instruct"
+    value: "databricks-meta-llama-3-3-70b-instruct"
   - name: WAREHOUSE_ID
     value: "8baced1ff014912d"
   - name: FLASK_SECRET_KEY

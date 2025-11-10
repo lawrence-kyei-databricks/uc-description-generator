@@ -1,513 +1,332 @@
 # Unity Catalog Description Generator
 
-<div align="center">
-
-**AI-Powered Table & Column Documentation for Unity Catalog**
-
-[![Databricks](https://img.shields.io/badge/Databricks-FF3621?style=for-the-badge&logo=databricks&logoColor=white)](https://databricks.com)
-[![React](https://img.shields.io/badge/React-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org)
-[![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
-[![Flask](https://img.shields.io/badge/Flask-000000?style=for-the-badge&logo=flask&logoColor=white)](https://flask.palletsprojects.com)
-
-[Features](#features) • [Quick Start](#quick-start) • [Documentation](#documentation) • [Screenshots](#screenshots) • [Deploy](#deployment)
-
-</div>
-
----
-
-## Overview
-
-A production-ready Databricks App that automatically generates, reviews, and applies table and column descriptions across Unity Catalog at scale using Foundation Model API (Llama 3.1 70B).
-
-**Use Case**: Document 1000+ tables for compliance
-**Deployment**: Databricks Apps with DABs support
-
----
+An AI-powered web application for generating and managing Unity Catalog table and column descriptions with human-in-the-loop review workflow.
 
 ## Features
 
-### AI-Powered Generation
-- Automatically generates descriptions using Databricks Foundation Models
-- Context-aware prompts with column types, sample data, and table structure
-- Batch processing for 1000+ tables
-- Multiple model support (Llama 3.1 70B, DBRX, 405B)
-
-### Dynamic Selection
-- **Catalog dropdown**: Select any accessible catalog
-- **Schema dropdown**: Filtered by selected catalog
-- **Table selection**: Bulk mode OR specific table checkboxes
-- Real-time permission validation
-
-### Human-in-the-Loop Review
-- Beautiful UI for reviewing AI-generated descriptions
-- Inline editing before approval
-- Reviewer tracking for audit trail
-- One-click approve/reject
-
-### Permission Checking
-- Automatic validation of UC permissions
-- Visual feedback (green = access granted, red = denied)
-- Shows current user identity
-- Lists specific permission errors
-
-### Compliance Dashboard
-- Real-time progress tracking
-- A-F compliance scoring
-- Interactive charts and visualizations
-- Schema-level completion rates
-- Export capabilities
-
-### Deployment Options
-- **DABs**: Modern, CI/CD-friendly deployment
-- **Multi-workspace**: Regional deployment support
-- **Environment management**: Dev/staging/prod separation
-
----
+- **AI-Powered Generation**: Uses Databricks SQL AI Functions with Llama 3.3 70B to generate intelligent descriptions
+- **Interactive UI**: Modern React interface for catalog/schema/table navigation
+- **Human-in-the-Loop**: Review and approve/edit/reject AI-generated descriptions
+- **Governance Tracking**: Stores all descriptions with metadata in a governance table
+- **Bulk Operations**: Generate descriptions for multiple tables at once
+- **Permission Checking**: Validates user permissions before operations
+- **Compliance Dashboard**: Track coverage and approval metrics
 
 ## Architecture
 
-```
-React Frontend (Vite + TailwindCSS)
-           ↓
-Flask Backend API (Databricks SDK)
-           ↓
-    ┌──────┴──────┐
-    ↓             ↓
-Foundation    Unity Catalog
-Model API     (via SQL Warehouse)
-```
+### Tech Stack
 
-**Technology Stack**:
-- **Frontend**: React 18, TailwindCSS, Framer Motion, Recharts, React Query
-- **Backend**: Flask 3.0, Databricks SDK 0.20, Python 3.9+
-- **AI**: Foundation Model API (Llama 3.1 70B)
-- **Database**: Unity Catalog + Governance Table
-- **Deployment**: Databricks Apps, DABs
+- **Backend**: Flask + Databricks SDK
+- **Frontend**: React 18 + TailwindCSS + Framer Motion + Recharts
+- **AI**: Databricks SQL AI Functions (`ai_query()`)
+- **Deployment**: Databricks Apps with DABs (Databricks Asset Bundles)
 
----
+### Key Components
+
+- **Flask API** (`app/main.py`): REST API for UC operations and AI generation
+- **React UI** (`frontend/src/`): Single-page application for user interaction
+- **SQL AI Functions**: Uses `ai_query()` for generation (no REST API calls needed)
+- **Governance Table**: `main.governance.description_governance` stores all generated descriptions
+
+## Prerequisites
+
+- Databricks workspace (AWS, Azure, or GCP)
+- SQL Warehouse with access to Unity Catalog
+- Databricks CLI installed and configured
+- Node.js 18+ (for frontend development)
+- Python 3.9+ (for local development)
 
 ## Quick Start
 
-### Prerequisites
-- Databricks workspace with Unity Catalog
-- SQL Warehouse (Serverless recommended)
-- Foundation Model API access
-- Node.js 18+ (for building frontend)
-- Databricks CLI
+### 1. Setup Governance Table
 
-### Deploy with DABs (Recommended)
+Run the setup SQL to create the governance schema and table:
+
+```sql
+-- Create governance schema
+CREATE SCHEMA IF NOT EXISTS main.governance;
+
+-- Create governance table
+CREATE TABLE IF NOT EXISTS main.governance.description_governance (
+    id BIGINT GENERATED ALWAYS AS IDENTITY,
+    object_type STRING NOT NULL,
+    catalog_name STRING NOT NULL,
+    schema_name STRING NOT NULL,
+    table_name STRING,
+    column_name STRING,
+    data_type STRING,
+    generated_description STRING NOT NULL,
+    approved_description STRING,
+    review_status STRING DEFAULT 'PENDING',
+    reviewer STRING,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    metadata STRING
+);
+```
+
+### 2. Configure Application
+
+Update `app.yml` with your warehouse ID:
+
+```yaml
+resources:
+  - name: warehouse
+    warehouse:
+      id: "your-warehouse-id"  # Replace with your SQL Warehouse ID
+
+env:
+  - name: WAREHOUSE_ID
+    value: "your-warehouse-id"  # Replace with your SQL Warehouse ID
+```
+
+### 3. Build Frontend
 
 ```bash
-# 1. Clone repository
-git clone https://github.com/lawrence-kyei-databricks/uc-description-generator.git
-cd uc-description-generator
-
-# 2. Build frontend
 cd frontend
 npm install
 npm run build
-cd ..
-
-# 3. Configure
-cp databricks.dev.yml databricks.prod.yml
-# Edit databricks.prod.yml with your warehouse ID
-
-# 4. Deploy
-databricks bundle deploy --target prod
-
-# 5. Create governance table
-# Run setup_governance.sql in your Databricks SQL editor
-
-# 6. Grant Service Principal permissions
-databricks apps get uc-description-generator-prod
-# Note the service_principal_client_id from output
-
-# Run these SQL commands (replace <SP_ID> with your service principal ID):
-# GRANT USE CATALOG ON CATALOG `main` TO `<SP_ID>`;
-# GRANT USE SCHEMA ON SCHEMA `main`.`governance` TO `<SP_ID>`;
-# GRANT SELECT, MODIFY ON TABLE `main`.`governance`.`description_governance` TO `<SP_ID>`;
-#
-# Grant access to schemas you want to document:
-# GRANT USE SCHEMA ON SCHEMA `main`.`<your_schema>` TO `<SP_ID>`;
-# GRANT SELECT ON SCHEMA `main`.`<your_schema>` TO `<SP_ID>`;
-# GRANT MODIFY ON SCHEMA `main`.`<your_schema>` TO `<SP_ID>`;
-
-# Also grant SQL Warehouse access via Databricks UI:
-# SQL Warehouses → Select your warehouse → Permissions → Add SP with "Can Use"
-
-# 7. Get app URL
-databricks apps get uc-description-generator-prod
 ```
 
-### Deploy with Legacy Script
+### 4. Deploy to Databricks
 
 ```bash
-./deploy.sh
-# Follow interactive prompts
+# Deploy using Databricks CLI
+databricks apps deploy uc-description-generator \
+  --source-code-path /Workspace/Users/your.email@company.com/uc-description-app \
+  --profile your-profile
 ```
 
----
-
-## Documentation
-
-### Getting Started
-- **[README.md](README.md)** - Complete feature overview
-- **[QUICK_START.md](QUICK_START.md)** - 5-minute setup guide
-- **[QUICK_REFERENCE.md](QUICK_REFERENCE.md)** - Command cheat sheet
-
-### Deployment
-- **[DABS_DEPLOYMENT.md](DABS_DEPLOYMENT.md)** - DABs deployment guide (500+ lines)
-- **[DEPLOYMENT.md](DEPLOYMENT.md)** - Detailed deployment instructions
-- **[GLOBAL_DEPLOYMENT_SUMMARY.md](GLOBAL_DEPLOYMENT_SUMMARY.md)** - Global deployment strategies
-
-### Technical
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** - System architecture & data flow
-- **[UI_GUIDE.md](UI_GUIDE.md)** - UI design system & layouts
-- **[PROJECT_INDEX.md](PROJECT_INDEX.md)** - Complete file structure
-
-### Executive
-- **[SOLUTION_SUMMARY.md](SOLUTION_SUMMARY.md)** - Business overview & ROI
-
----
-
-## Screenshots
-
-### Dashboard
-![Dashboard](docs/dashboard.png)
-*Real-time statistics, progress tracking, and quick actions*
-
-### Generate
-![Generate](docs/generate.png)
-*Dynamic catalog/schema/table selection with permission checking*
-
-### Review
-![Review](docs/review.png)
-*Human approval workflow with inline editing*
-
-### Compliance
-![Compliance](docs/compliance.png)
-*Compliance scoring, charts, and audit trail*
-
----
-
-## Workflow
-
-```
-1. SELECT CATALOG/SCHEMA → 2. CHECK PERMISSIONS → 3. CHOOSE MODE → 4. GENERATE
-                                                      ↓
-                    ← 7. MONITOR COMPLIANCE ← 6. APPLY TO UC ← 5. REVIEW & APPROVE
-```
-
-### Detailed Steps
-
-1. **Select Target**: Choose catalog and schema from dropdowns
-2. **Check Permissions**: Automatic validation (green = access granted)
-3. **Choose Mode**:
-   - **Bulk**: All tables in schema
-   - **Select**: Pick specific tables
-4. **Generate**: AI creates descriptions using Foundation Model API
-5. **Review**: Human approves/edits descriptions
-6. **Apply**: Descriptions applied to Unity Catalog via SQL
-7. **Monitor**: Track progress on compliance dashboard
-
----
-
-## Global Deployment
-
-### Single Workspace, Multi-Catalog
-```bash
-# Deploy once
-databricks bundle deploy --target prod
-
-# Users select catalog/schema in UI:
-# - sales_catalog (Sales team)
-# - finance_catalog (Finance team)
-# - operations_catalog (Operations team)
-```
-
-### Multi-Workspace (Regional)
-```bash
-# US Region
-databricks bundle deploy --target prod --profile us-prod
-
-# EU Region
-databricks bundle deploy --target prod --profile eu-prod
-
-# APAC Region
-databricks bundle deploy --target prod --profile apac-prod
-```
-
----
-
-## Security & Compliance
-
-### Service Principal Setup (Critical)
-
-**⚠️ IMPORTANT**: After deployment, you MUST grant the app's Service Principal access to resources.
+Or use DABs:
 
 ```bash
-# 1. Get Service Principal ID
-databricks apps get uc-description-generator-dev --profile <your-profile>
-# Look for: "service_principal_client_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-
-# 2. Run these SQL grants (replace <SP_ID> with your actual ID)
-GRANT USE CATALOG ON CATALOG `main` TO `<SP_ID>`;
-GRANT USE SCHEMA ON SCHEMA `main`.`governance` TO `<SP_ID>`;
-GRANT SELECT, MODIFY ON TABLE `main`.`governance`.`description_governance` TO `<SP_ID>`;
-
-# 3. Grant access to schemas you want to document
-GRANT USE SCHEMA ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
-GRANT SELECT ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
-GRANT MODIFY ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
-
-# 4. Grant SQL Warehouse access via UI
-# Go to: SQL Warehouses → Select warehouse → Permissions tab
-# Add: Service Principal ID with "Can Use" permission
+# Deploy with bundle
+databricks bundle deploy -t dev
 ```
 
-**Without these permissions, the app will not be able to:**
-- Access Unity Catalog metadata
-- Store generated descriptions
-- Apply descriptions to tables/columns
+### 5. Grant Permissions
 
-### Authentication
-- OAuth-based authentication via Databricks SDK
-- No hardcoded credentials
-- Workspace-level access control
+Grant the app's service principal necessary permissions:
 
-### Authorization
-- Inherits Unity Catalog permissions
-- Real-time permission checking
-- Users can only document tables they have access to
-
-### Audit Trail
-Every action is tracked:
-- Who generated (system + timestamp)
-- Who reviewed (name/email + timestamp)
-- Who applied (system + timestamp)
-- Original AI output
-- Final approved version
-- Model used
-
-### Query Audit Trail
 ```sql
-SELECT
-  reviewer,
-  COUNT(*) as items_reviewed,
-  MIN(reviewed_at) as first_review,
-  MAX(reviewed_at) as last_review
-FROM main.governance.description_governance
-WHERE reviewer IS NOT NULL
-GROUP BY reviewer;
+-- Grant warehouse access
+GRANT USAGE ON WAREHOUSE `your-warehouse-name` TO `service-principal-id`;
+
+-- Grant catalog access
+GRANT USAGE ON CATALOG main TO `service-principal-id`;
+GRANT SELECT ON CATALOG main TO `service-principal-id`;
+
+-- Grant governance schema access
+GRANT USAGE ON SCHEMA main.governance TO `service-principal-id`;
+GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `service-principal-id`;
 ```
 
----
+## Usage
 
-## Performance
+### Generate Descriptions
 
-- **Generation**: ~2-5 seconds per table (including columns)
-- **Review**: Manual (depends on SME availability)
-- **Application**: ~0.5 seconds per SQL COMMENT
-- **1000 tables**: ~1-2 hours generation + review time + 10 min application
+1. Navigate to the **Generate** page
+2. Select catalog and schema
+3. Select specific tables (or leave empty for all)
+4. Click **Generate Descriptions**
+5. AI will generate descriptions for tables and their columns
 
-### Cost Estimates
-- **Foundation Model API**: ~$2-3 per 1000 tables
-- **SQL Warehouse (Serverless)**: ~$1-2 per 1000 tables
-- **Total**: **~$3-5 per 1000 tables**
+### Review Descriptions
 
----
+1. Navigate to the **Review** page
+2. Browse pending descriptions
+3. For each description:
+   - **Approve**: Accept as-is
+   - **Edit & Approve**: Modify and approve
+   - **Reject**: Reject the description
 
-## Use Cases
+### Apply to Unity Catalog
 
-### Multi-Tenant Organization
-```
-Finance Team → Select "finance_catalog"
-Sales Team → Select "sales_catalog"
-Operations Team → Select "operations_catalog"
-```
+1. Navigate to the **Compliance** page
+2. Click **Apply Approved Descriptions**
+3. Approved descriptions will be written to Unity Catalog using `COMMENT` statements
 
-### Progressive Rollout
-```
-Week 1: Document "sales" schema (bulk mode)
-Week 2: Update specific tables in "customers" schema (select mode)
-Week 3: Document "orders" schema (bulk mode)
-```
+### Monitor Progress
 
-### Global Deployment
-```
-US Region → Deploy to us-workspace
-EU Region → Deploy to eu-workspace
-APAC Region → Deploy to apac-workspace
-```
+The **Dashboard** page shows:
+- Coverage metrics by schema
+- Review activity over time
+- Top documented catalogs
+- Overall statistics
 
----
+## How It Works
+
+### AI Generation Process
+
+1. **Metadata Collection**: App queries `system.information_schema` for table/column metadata
+2. **Sample Data**: Retrieves sample rows for context
+3. **AI Generation**: Uses SQL AI Functions:
+   ```sql
+   SELECT ai_query(
+     'databricks-meta-llama-3-3-70b-instruct',
+     'Generate a description for table X with columns Y...'
+   ) as response
+   ```
+4. **Storage**: Saves generated descriptions to governance table with `PENDING` status
+
+### Review Workflow
+
+1. User reviews generated descriptions in the UI
+2. Can approve, edit, or reject each description
+3. Approved descriptions are marked with `APPROVED` status
+4. Reviewer name and timestamp are recorded
+
+### Application to UC
+
+1. App reads all `APPROVED` descriptions from governance table
+2. Executes `COMMENT` statements:
+   ```sql
+   COMMENT ON TABLE catalog.schema.table IS 'description';
+   COMMENT ON COLUMN catalog.schema.table.column IS 'description';
+   ```
+3. Marks as applied in governance table
 
 ## Configuration
 
-### Environment Variables
+### Environment Variables (app.yml)
+
+- `TARGET_CATALOG`: Default catalog for operations (default: `main`)
+- `GOVERNANCE_SCHEMA`: Schema for governance table (default: `governance`)
+- `MODEL_ENDPOINT`: AI model endpoint (default: `databricks-meta-llama-3-3-70b-instruct`)
+- `WAREHOUSE_ID`: SQL Warehouse ID (required)
+- `FLASK_SECRET_KEY`: Flask session secret (required)
+
+### Databricks Bundle (databricks.yml)
 
 ```yaml
-# databricks.prod.yml
-variables:
-  warehouse_id: "your-warehouse-id"
-  target_catalog: "main"  # Default (changeable in UI)
-  governance_schema: "governance"
-  model_endpoint: "databricks-meta-llama-3-1-70b-instruct"
-  flask_secret_key: "${secrets/scope/flask_secret_key}"
+bundle:
+  name: uc-description-generator
+
+targets:
+  dev:
+    mode: development
+    workspace:
+      host: https://your-workspace.cloud.databricks.com
+      profile: your-profile
+
+    resources:
+      apps:
+        uc_description_generator_app:
+          name: uc-description-generator
+          description: "UC Description Generator"
+          source_code_path: .
 ```
 
-### Customize AI Model
+## Development
 
-```python
-# app/main.py
-MODEL_ENDPOINT = "databricks-meta-llama-3-1-405b-instruct"  # Larger model
+### Local Frontend Development
 
-# Or via environment variable
-MODEL_ENDPOINT = os.environ.get('MODEL_ENDPOINT', 'databricks-dbrx-instruct')
+```bash
+cd frontend
+npm install
+npm run dev  # Starts dev server on http://localhost:5173
 ```
 
----
+### Backend Development
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Set environment variables
+export DATABRICKS_HOST=https://your-workspace.cloud.databricks.com
+export DATABRICKS_TOKEN=your-token
+export WAREHOUSE_ID=your-warehouse-id
+export FLASK_SECRET_KEY=your-secret-key
+
+# Run Flask app
+python -m app.main
+```
+
+### Project Structure
+
+```
+uc-description-app/
+├── app/
+│   └── main.py              # Flask backend + AI generation logic
+├── frontend/
+│   ├── src/
+│   │   ├── pages/           # React pages (Dashboard, Generate, Review, Compliance)
+│   │   ├── components/      # Reusable React components
+│   │   └── services/        # API client
+│   └── vite.config.js       # Vite build configuration
+├── static/                  # Built frontend assets (generated)
+├── app.yml                  # Databricks App configuration
+├── databricks.yml           # DABs bundle configuration
+├── requirements.txt         # Python dependencies
+├── setup_governance.sql     # Database setup script
+└── README.md               # This file
+```
 
 ## Troubleshooting
 
-### App Shows "Not Found" or 404 Error
-**Issue**: Static files not deployed
+### "Model endpoint does not exist"
+
+Update `MODEL_ENDPOINT` in `app.yml` to an available Foundation Model endpoint:
+
 ```bash
-# Solution: Ensure static/ is committed and rebuild
-git add static/
-git commit -m "Add static files"
-cd frontend && npm run build && cd ..
-databricks bundle deploy --target dev
+# List available endpoints
+databricks serving-endpoints list | grep databricks
 ```
 
-### Service Principal Permission Denied
-**Issue**: App can't access Unity Catalog
-```bash
-# Solution: Grant SP permissions (replace <SP_ID> with actual ID from databricks apps get)
-databricks apps get uc-description-generator-dev
+### "Permission denied" errors
 
-# Then run:
-GRANT USE CATALOG ON CATALOG `main` TO `<SP_ID>`;
-GRANT USE SCHEMA ON SCHEMA `main`.`governance` TO `<SP_ID>`;
-GRANT SELECT, MODIFY ON TABLE `main`.`governance`.`description_governance` TO `<SP_ID>`;
-GRANT USE SCHEMA ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
-GRANT SELECT, MODIFY ON SCHEMA `main`.`your_schema` TO `<SP_ID>`;
+Ensure the service principal has proper grants:
+- Warehouse usage
+- Catalog/schema/table access
+- Governance table permissions
 
-# Also grant SQL Warehouse "Can Use" permission via UI
-```
+### "Table not found" errors
 
-### User Permission Denied
-**Issue**: User can't see certain catalogs/schemas
-```sql
--- Grant user access (run as admin)
-GRANT USE CATALOG ON CATALOG main TO `user@company.com`;
-GRANT USE SCHEMA ON SCHEMA main.governance TO `user@company.com`;
-GRANT SELECT, MODIFY ON SCHEMA main.* TO `user@company.com`;
-```
+Run the governance table setup SQL script first.
 
-### Frontend Not Loading
-```bash
-cd frontend && npm run build && cd ..
-databricks bundle deploy --target dev
-```
+## Security Considerations
 
-### Foundation Model Timeout
-```python
-# Edit app/main.py
-response = requests.post(url, headers=headers, json=payload, timeout=60)
-```
+- App uses service principal authentication (app authorization)
+- No user credentials are stored or transmitted
+- All API calls use the app's service principal identity
+- SQL injection prevention through parameterized queries
+- FLASK_SECRET_KEY should be a secure random value in production
 
-### App Crashes on Startup
-**Issue**: Missing environment variables
-```bash
-# Check app logs
-databricks apps get uc-description-generator-dev
+## Performance
 
-# Verify app.yml has:
-# - WAREHOUSE_ID
-# - FLASK_SECRET_KEY
-# - TARGET_CATALOG
-# - GOVERNANCE_SCHEMA
-```
+- Table listing queries exclude correlated subqueries for speed
+- Batch generation processes multiple tables in parallel
+- SQL AI Functions execute directly in the warehouse (no network overhead)
+- Frontend uses React Query for efficient caching
 
----
+## Future Enhancements
 
-## Roadmap
-
-### Phase 1 (Current)
-- AI-powered description generation
-- Dynamic catalog/schema/table selection
-- Permission checking
-- Human review workflow
-- Compliance dashboard
-- DABs deployment
-
-### Phase 2 (Planned)
-- Bulk CSV import/export
-- Scheduled regeneration
-- Slack/email notifications
-- Description quality scoring
-- Multi-language support
-
-### Phase 3 (Future)
-- Auto-approval based on confidence
-- Data lineage integration
-- Custom model fine-tuning
-- Advanced analytics
-
----
+- [ ] Support for more AI models
+- [ ] Custom prompt templates
+- [ ] Scheduled batch generation
+- [ ] Integration with data quality checks
+- [ ] Export descriptions to documentation systems
+- [ ] Multi-language support
 
 ## Contributing
 
-For questions or improvements:
-
-1. Create an issue
-2. Fork the repository
-3. Create a feature branch
-4. Submit a pull request
-
----
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
 
 ## License
 
-Apache 2.0
-
----
-
-## Acknowledgments
-
-- **Databricks** - Foundation Model API and Unity Catalog
-- **Open Source Community** - React, TailwindCSS, and dependencies
-
----
+MIT License - see LICENSE file for details
 
 ## Support
 
-### Documentation
-- Full documentation in repository
-- API reference in `ARCHITECTURE.md`
-- Troubleshooting in `DEPLOYMENT.md`
-
-### Contact
-- **Databricks**: Your Solutions Architect
-- **Issues**: [GitHub Issues](https://github.com/lawrence-kyei-databricks/uc-description-generator/issues)
+For issues and questions:
+- Create an issue in the GitHub repository
+- Contact your Databricks account team
 
 ---
 
-## Success Metrics
-
-- **95% time savings** vs manual documentation
-- **1000+ tables** documented at scale
-- **Single deployment** works globally
-- **Full audit trail** for compliance
-- **Modern UI** for great user experience
-
----
-
-<div align="center">
-
-**Powered by Databricks Foundation Models**
-
-[Back to Top](#unity-catalog-description-generator)
-
-</div>
+**Built with ❤️ using Databricks Apps, SQL AI Functions, and React**
