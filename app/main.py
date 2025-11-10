@@ -163,16 +163,13 @@ class DescriptionService:
 
     def get_tables(self, catalog: str, schema: str) -> List[Dict]:
         """Get list of tables in schema with metadata"""
+        # Simplified query without correlated subquery for performance
         query = f"""
         SELECT
             table_name,
             table_type,
-            comment as current_comment,
-            (SELECT COUNT(*) FROM system.information_schema.columns
-             WHERE table_catalog = t.table_catalog
-               AND table_schema = t.table_schema
-               AND table_name = t.table_name) as column_count
-        FROM system.information_schema.tables t
+            comment as current_comment
+        FROM system.information_schema.tables
         WHERE table_catalog = '{catalog}'
           AND table_schema = '{schema}'
           AND table_type IN ('MANAGED', 'EXTERNAL', 'MATERIALIZED_VIEW')

@@ -267,7 +267,7 @@ export default function Generate() {
                     {table.table_name}
                   </p>
                   <p className="text-sm text-gray-500">
-                    {table.column_count} columns
+                    {table.table_type}
                     {table.current_comment && ' • Has description'}
                   </p>
                 </div>
