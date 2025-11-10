@@ -306,17 +306,21 @@ class DescriptionService:
             'sample_data': sample_data
         }
 
-    def call_foundation_model(self, prompt: str) -> str:
-        """Call Foundation Model API"""
+    def call_foundation_model(self, prompt: str, user_token: str = None) -> str:
+        """Call Foundation Model API using user's OAuth token"""
         try:
-            # Get workspace URL and token
+            # Get workspace URL
             workspace_url = self.w.config.host
-            token = self.w.config.token
+
+            # Use user's token if provided, otherwise fall back to service principal
+            # (user token is required for Foundation Model API)
+            if not user_token:
+                return "ERROR: User authentication token required for Foundation Model API"
 
             url = f"{workspace_url}/serving-endpoints/{MODEL_ENDPOINT}/invocations"
 
             headers = {
-                'Authorization': f'Bearer {token}',
+                'Authorization': f'Bearer {user_token}',
                 'Content-Type': 'application/json'
             }
 
@@ -335,7 +339,7 @@ class DescriptionService:
         except Exception as e:
             return f"ERROR: {str(e)}"
 
-    def generate_table_description(self, catalog: str, schema: str, table: str) -> str:
+    def generate_table_description(self, catalog: str, schema: str, table: str, user_token: str = None) -> str:
         """Generate description for a table"""
         metadata = self.get_table_metadata(catalog, schema, table)
 
@@ -362,10 +366,10 @@ Generate a 1-2 sentence description explaining:
 
 Description:"""
 
-        return self.call_foundation_model(prompt)
+        return self.call_foundation_model(prompt, user_token)
 
     def generate_column_description(self, catalog: str, schema: str, table: str,
-                                   column_name: str, column_type: str, sample_values: List = None) -> str:
+                                   column_name: str, column_type: str, sample_values: List = None, user_token: str = None) -> str:
         """Generate description for a column"""
         sample_info = ""
         if sample_values:
@@ -384,7 +388,7 @@ Generate a brief 1-sentence description explaining what this column represents a
 
 Description:"""
 
-        return self.call_foundation_model(prompt)
+        return self.call_foundation_model(prompt, user_token)
 
     def store_generated_description(self, object_type: str, catalog: str, schema: str,
                                    table: str, column: Optional[str], column_type: Optional[str],
@@ -606,6 +610,17 @@ def api_generate():
         tables_list = data.get('tables', [])  # Specific tables or empty for all
         batch_size = data.get('batch_size', 10)
 
+        # Get user's OAuth token from request headers
+        # In Databricks Apps, the Authorization header contains the user's token
+        auth_header = request.headers.get('Authorization', '')
+        user_token = auth_header.replace('Bearer ', '') if auth_header.startswith('Bearer ') else None
+
+        if not user_token:
+            return jsonify({
+                'success': False,
+                'error': 'User authentication required'
+            }), 401
+
         # Check permissions first
         perms = get_service().check_permissions(catalog, schema)
         if not perms['can_select'] or not perms['can_modify']:
@@ -638,9 +653,9 @@ def api_generate():
             tbl = table_info['table_name']
 
             try:
-                # Generate table description
+                # Generate table description with user's token
                 print(f"Generating description for {cat}.{sch}.{tbl}")
-                table_desc = get_service().generate_table_description(cat, sch, tbl)
+                table_desc = get_service().generate_table_description(cat, sch, tbl, user_token)
                 print(f"Table description result: {table_desc[:100]}...")
 
                 if not table_desc.startswith('ERROR:'):
@@ -669,7 +684,7 @@ def api_generate():
                             sample_values = [row.get(col['column_name']) for row in metadata['sample_data']]
 
                         col_desc = get_service().generate_column_description(
-                            cat, sch, tbl, col['column_name'], col['data_type'], sample_values
+                            cat, sch, tbl, col['column_name'], col['data_type'], sample_values, user_token
                         )
 
                         if not col_desc.startswith('ERROR:'):
