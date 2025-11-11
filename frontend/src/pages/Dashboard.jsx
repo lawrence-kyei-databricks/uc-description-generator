@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import {
@@ -12,6 +13,7 @@ import {
 import { descriptionService } from '../services/api'
 import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
+import { ConfirmModal, AlertModal } from '../components/Modal'
 
 const StatCard = ({ icon: Icon, label, value, color, trend }) => (
   <motion.div
@@ -41,6 +43,9 @@ const StatCard = ({ icon: Icon, label, value, color, trend }) => (
 )
 
 export default function Dashboard() {
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => {} })
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
+
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
     queryFn: descriptionService.getStats,
@@ -73,6 +78,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      {/* Modals */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title="Apply to Unity Catalog"
+        message={confirmModal.message}
+        confirmText="Apply"
+        type="info"
+      />
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+
       {/* Hero Section */}
       <div className="card bg-gradient-to-r from-databricks-red to-red-600 text-white">
         <div className="flex items-center justify-between">
@@ -212,16 +235,30 @@ export default function Dashboard() {
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           className="card hover:shadow-lg transition-all cursor-pointer border-2 border-transparent hover:border-databricks-red"
-          onClick={async () => {
-            if (confirm('Apply all approved descriptions to Unity Catalog?')) {
-              try {
-                await descriptionService.applyDescriptions()
-                alert('Descriptions applied successfully!')
-                window.location.reload()
-              } catch (error) {
-                alert('Error: ' + error.message)
+          onClick={() => {
+            setConfirmModal({
+              isOpen: true,
+              message: 'Apply all approved descriptions to Unity Catalog?',
+              onConfirm: async () => {
+                try {
+                  await descriptionService.applyDescriptions()
+                  setAlertModal({
+                    isOpen: true,
+                    title: 'Success',
+                    message: 'Descriptions applied successfully!',
+                    type: 'success'
+                  })
+                  window.location.reload()
+                } catch (error) {
+                  setAlertModal({
+                    isOpen: true,
+                    title: 'Error',
+                    message: error.message,
+                    type: 'error'
+                  })
+                }
               }
-            }
+            })
           }}
         >
           <TrendingUp className="w-12 h-12 text-purple-600 mb-4" />
@@ -251,10 +288,20 @@ export default function Dashboard() {
                 onClick={async () => {
                   try {
                     await descriptionService.setup()
-                    alert('Setup complete! Navigate to Generate to start creating descriptions.')
+                    setAlertModal({
+                      isOpen: true,
+                      title: 'Setup Complete',
+                      message: 'Setup complete! Navigate to Generate to start creating descriptions.',
+                      type: 'success'
+                    })
                     window.location.reload()
                   } catch (error) {
-                    alert('Error: ' + error.message)
+                    setAlertModal({
+                      isOpen: true,
+                      title: 'Error',
+                      message: error.message,
+                      type: 'error'
+                    })
                   }
                 }}
               >

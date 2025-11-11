@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Shield, TrendingUp, Users, Clock, Download, CheckCircle2, Upload } from 'lucide-react'
 import { descriptionService } from '../services/api'
+import { ConfirmModal, AlertModal } from '../components/Modal'
 import {
   PieChart,
   Pie,
@@ -21,6 +22,8 @@ const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6']
 
 export default function Compliance() {
   const [isApplying, setIsApplying] = useState(false)
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => {} })
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
   const queryClient = useQueryClient()
 
   const { data: stats } = useQuery({
@@ -43,25 +46,44 @@ export default function Compliance() {
     onSuccess: (data) => {
       queryClient.invalidateQueries(['stats'])
       queryClient.invalidateQueries(['schema-progress'])
-      alert(`Successfully applied ${data.results?.applied_count || 0} descriptions to Unity Catalog!`)
+      setAlertModal({
+        isOpen: true,
+        title: 'Success',
+        message: `Successfully applied ${data.results?.applied_count || 0} descriptions to Unity Catalog!`,
+        type: 'success'
+      })
       setIsApplying(false)
     },
     onError: (error) => {
-      alert(`Failed to apply descriptions: ${error.message}`)
+      setAlertModal({
+        isOpen: true,
+        title: 'Error',
+        message: `Failed to apply descriptions: ${error.message}`,
+        type: 'error'
+      })
       setIsApplying(false)
     },
   })
 
   const handleApply = async () => {
     if (!statsData.approved || statsData.approved === 0) {
-      alert('No approved descriptions to apply')
+      setAlertModal({
+        isOpen: true,
+        title: 'No Descriptions',
+        message: 'No approved descriptions to apply',
+        type: 'warning'
+      })
       return
     }
 
-    if (confirm(`Apply ${statsData.approved} approved descriptions to Unity Catalog?`)) {
-      setIsApplying(true)
-      applyMutation.mutate()
-    }
+    setConfirmModal({
+      isOpen: true,
+      message: `Apply ${statsData.approved} approved descriptions to Unity Catalog?`,
+      onConfirm: () => {
+        setIsApplying(true)
+        applyMutation.mutate()
+      }
+    })
   }
 
   const statsData = stats?.stats || {}
@@ -93,6 +115,24 @@ export default function Compliance() {
 
   return (
     <div className="space-y-6">
+      {/* Modals */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title="Apply to Unity Catalog"
+        message={confirmModal.message}
+        confirmText="Apply"
+        type="info"
+      />
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+
       {/* Header */}
       <div className="card bg-gradient-to-r from-blue-500 to-blue-600 text-white">
         <div className="flex items-center justify-between">

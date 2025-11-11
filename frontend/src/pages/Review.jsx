@@ -13,8 +13,9 @@ import {
   Filter,
 } from 'lucide-react'
 import { descriptionService } from '../services/api'
+import { ConfirmModal, AlertModal } from '../components/Modal'
 
-const ReviewCard = ({ item, onReview, isSubmitting, isProcessingItem }) => {
+const ReviewCard = ({ item, onReview, isSubmitting, isProcessingItem, onShowAlert, onShowConfirm }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editedDescription, setEditedDescription] = useState(item.ai_generated_description)
   const [reviewer, setReviewer] = useState('')
@@ -24,7 +25,11 @@ const ReviewCard = ({ item, onReview, isSubmitting, isProcessingItem }) => {
 
   const handleApprove = async () => {
     if (!reviewer.trim()) {
-      alert('Please enter your name/email as reviewer')
+      onShowAlert({
+        title: 'Reviewer Required',
+        message: 'Please enter your name or email as reviewer',
+        type: 'warning'
+      })
       return
     }
     await onReview(item.id, 'APPROVED', editedDescription, reviewer)
@@ -32,12 +37,17 @@ const ReviewCard = ({ item, onReview, isSubmitting, isProcessingItem }) => {
 
   const handleReject = async () => {
     if (!reviewer.trim()) {
-      alert('Please enter your name/email as reviewer')
+      onShowAlert({
+        title: 'Reviewer Required',
+        message: 'Please enter your name or email as reviewer',
+        type: 'warning'
+      })
       return
     }
-    if (confirm('Are you sure you want to reject this description?')) {
-      await onReview(item.id, 'REJECTED', null, reviewer)
-    }
+    onShowConfirm({
+      message: 'Are you sure you want to reject this description?',
+      onConfirm: () => onReview(item.id, 'REJECTED', null, reviewer)
+    })
   }
 
   return (
@@ -186,6 +196,8 @@ export default function Review() {
   const [page, setPage] = useState(1)
   const [filterType, setFilterType] = useState('ALL')
   const [processingItemId, setProcessingItemId] = useState(null)
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => {} })
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
   const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery({
@@ -253,6 +265,24 @@ export default function Review() {
 
   return (
     <div className="space-y-6">
+      {/* Modals */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title="Confirm Rejection"
+        message={confirmModal.message}
+        confirmText="Reject"
+        type="danger"
+      />
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+
       {/* Header */}
       <div className="card bg-gradient-to-r from-green-500 to-green-600 text-white">
         <div className="flex items-center justify-between">
@@ -314,6 +344,8 @@ export default function Review() {
                   item={item}
                   onReview={handleReview}
                   isProcessingItem={processingItemId}
+                  onShowAlert={(alert) => setAlertModal({ ...alert, isOpen: true })}
+                  onShowConfirm={(confirm) => setConfirmModal({ ...confirm, isOpen: true })}
                 />
               ))}
             </AnimatePresence>

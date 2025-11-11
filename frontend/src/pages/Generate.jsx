@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Sparkles, Database, Loader, CheckCircle, AlertCircle, Shield, Table as TableIcon } from 'lucide-react'
 import { descriptionService } from '../services/api'
+import { ConfirmModal, AlertModal } from '../components/Modal'
 
 export default function Generate() {
   const [catalog, setCatalog] = useState('')
@@ -10,6 +11,8 @@ export default function Generate() {
   const [selectedTables, setSelectedTables] = useState([])
   const [results, setResults] = useState(null)
   const [permissions, setPermissions] = useState(null)
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, message: '', onConfirm: () => {} })
+  const [alertModal, setAlertModal] = useState({ isOpen: false, title: '', message: '', type: 'info' })
   const queryClient = useQueryClient()
 
   // Fetch catalogs
@@ -88,17 +91,32 @@ export default function Generate() {
 
   const handleGenerate = () => {
     if (!catalog || !schema) {
-      alert('Please select catalog and schema')
+      setAlertModal({
+        isOpen: true,
+        title: 'Selection Required',
+        message: 'Please select catalog and schema',
+        type: 'warning'
+      })
       return
     }
 
     if (!permissions?.can_modify) {
-      alert('You do not have permission to modify tables in this schema')
+      setAlertModal({
+        isOpen: true,
+        title: 'Permission Denied',
+        message: 'You do not have permission to modify tables in this schema',
+        type: 'error'
+      })
       return
     }
 
     if (selectedTables.length === 0) {
-      alert('Please select at least one table')
+      setAlertModal({
+        isOpen: true,
+        title: 'No Tables Selected',
+        message: 'Please select at least one table',
+        type: 'warning'
+      })
       return
     }
 
@@ -108,12 +126,14 @@ export default function Generate() {
       tables: selectedTables,
     }
 
-    const confirmMsg = `Generate descriptions for ${selectedTables.length} selected table(s)?`
-
-    if (confirm(confirmMsg)) {
-      setResults(null)
-      generateMutation.mutate(params)
-    }
+    setConfirmModal({
+      isOpen: true,
+      message: `Generate descriptions for ${selectedTables.length} selected table(s)?`,
+      onConfirm: () => {
+        setResults(null)
+        generateMutation.mutate(params)
+      }
+    })
   }
 
   const tables = tablesData?.tables || []
@@ -121,6 +141,24 @@ export default function Generate() {
 
   return (
     <div className="space-y-6">
+      {/* Modals */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        onConfirm={confirmModal.onConfirm}
+        title="Generate Descriptions"
+        message={confirmModal.message}
+        confirmText="Generate"
+        type="info"
+      />
+      <AlertModal
+        isOpen={alertModal.isOpen}
+        onClose={() => setAlertModal({ ...alertModal, isOpen: false })}
+        title={alertModal.title}
+        message={alertModal.message}
+        type={alertModal.type}
+      />
+
       {/* Header */}
       <div className="card bg-gradient-to-r from-purple-500 to-purple-600 text-white">
         <div className="flex items-center justify-between">
