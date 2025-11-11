@@ -146,7 +146,9 @@ GRANT SELECT ON TABLE your_catalog.your_schema.your_table TO `service-principal-
 GRANT MODIFY ON TABLE your_catalog.your_schema.your_table TO `service-principal-id`;
 ```
 
-**Note**: `MODIFY` permission is required to set table and column comments. Without it, the apply step will fail.
+**Notes**:
+- `MODIFY` permission is required to set table and column comments. Without it, the apply step will fail.
+- SQL AI Functions (`ai_query()`) do not require special permissions - they work automatically through warehouse access. No additional grants needed for the AI model.
 
 ## Usage
 
