@@ -426,18 +426,32 @@ class DescriptionService:
         """Get overall statistics"""
         query = f"""
         SELECT
-            COUNT(*) as total,
-            SUM(CASE WHEN review_status = 'PENDING' THEN 1 ELSE 0 END) as pending,
-            SUM(CASE WHEN review_status = 'APPROVED' THEN 1 ELSE 0 END) as approved,
-            SUM(CASE WHEN review_status = 'REJECTED' THEN 1 ELSE 0 END) as rejected,
-            SUM(CASE WHEN review_status = 'APPLIED' THEN 1 ELSE 0 END) as applied,
-            SUM(CASE WHEN object_type = 'TABLE' THEN 1 ELSE 0 END) as tables,
-            SUM(CASE WHEN object_type = 'COLUMN' THEN 1 ELSE 0 END) as columns
+            CAST(COUNT(*) AS BIGINT) as total,
+            CAST(COALESCE(SUM(CASE WHEN review_status = 'PENDING' THEN 1 ELSE 0 END), 0) AS BIGINT) as pending,
+            CAST(COALESCE(SUM(CASE WHEN review_status = 'APPROVED' THEN 1 ELSE 0 END), 0) AS BIGINT) as approved,
+            CAST(COALESCE(SUM(CASE WHEN review_status = 'REJECTED' THEN 1 ELSE 0 END), 0) AS BIGINT) as rejected,
+            CAST(COALESCE(SUM(CASE WHEN review_status = 'APPLIED' THEN 1 ELSE 0 END), 0) AS BIGINT) as applied,
+            CAST(COALESCE(SUM(CASE WHEN object_type = 'TABLE' THEN 1 ELSE 0 END), 0) AS BIGINT) as tables,
+            CAST(COALESCE(SUM(CASE WHEN object_type = 'COLUMN' THEN 1 ELSE 0 END), 0) AS BIGINT) as columns
         FROM {GOVERNANCE_TABLE}
         """
 
         results = self.execute_sql(query)
-        return results[0] if results else {}
+        stats = results[0] if results else {}
+
+        # Convert all numeric values to int for JSON serialization
+        if stats:
+            for key in ['total', 'pending', 'approved', 'rejected', 'applied', 'tables', 'columns']:
+                if key in stats and stats[key] is not None:
+                    try:
+                        stats[key] = int(stats[key])
+                    except (ValueError, TypeError):
+                        stats[key] = 0
+                else:
+                    stats[key] = 0
+
+        print(f"DEBUG: Statistics: {stats}")
+        return stats
 
     def get_schema_progress(self) -> List[Dict]:
         """Get progress by schema"""

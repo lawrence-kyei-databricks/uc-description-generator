@@ -14,20 +14,19 @@ import {
 } from 'lucide-react'
 import { descriptionService } from '../services/api'
 
-const ReviewCard = ({ item, onReview, isSubmitting }) => {
+const ReviewCard = ({ item, onReview, isSubmitting, isProcessingItem }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editedDescription, setEditedDescription] = useState(item.ai_generated_description)
   const [reviewer, setReviewer] = useState('')
-  const [isProcessing, setIsProcessing] = useState(false)
 
   const isTable = item.object_type === 'TABLE'
+  const isProcessing = isProcessingItem === item.id
 
   const handleApprove = async () => {
     if (!reviewer.trim()) {
       alert('Please enter your name/email as reviewer')
       return
     }
-    setIsProcessing(true)
     await onReview(item.id, 'APPROVED', editedDescription, reviewer)
   }
 
@@ -37,7 +36,6 @@ const ReviewCard = ({ item, onReview, isSubmitting }) => {
       return
     }
     if (confirm('Are you sure you want to reject this description?')) {
-      setIsProcessing(true)
       await onReview(item.id, 'REJECTED', null, reviewer)
     }
   }
@@ -52,26 +50,26 @@ const ReviewCard = ({ item, onReview, isSubmitting }) => {
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center space-x-3 flex-1 min-w-0">
           {isTable ? (
-            <div className="p-2 bg-blue-100 rounded-lg">
+            <div className="p-2 bg-blue-100 rounded-lg flex-shrink-0">
               <Table className="w-5 h-5 text-blue-600" />
             </div>
           ) : (
-            <div className="p-2 bg-purple-100 rounded-lg">
+            <div className="p-2 bg-purple-100 rounded-lg flex-shrink-0">
               <Columns className="w-5 h-5 text-purple-600" />
             </div>
           )}
-          <div>
+          <div className="flex-1 min-w-0">
             <p className="text-xs font-semibold text-gray-500 uppercase">
               {item.object_type}
             </p>
-            <p className="font-mono text-sm font-bold text-gray-900">
+            <p className="font-mono text-sm font-bold text-gray-900 break-all">
               {item.object_path}
             </p>
           </div>
         </div>
-        <span className="badge badge-pending">Pending</span>
+        <span className="badge badge-pending flex-shrink-0 ml-2">PENDING</span>
       </div>
 
       {/* Column Type (if column) */}
@@ -106,7 +104,7 @@ const ReviewCard = ({ item, onReview, isSubmitting }) => {
           />
         ) : (
           <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-gray-900">{editedDescription}</p>
+            <p className="text-gray-900 break-words">{editedDescription}</p>
           </div>
         )}
       </div>
@@ -187,6 +185,7 @@ const ReviewCard = ({ item, onReview, isSubmitting }) => {
 export default function Review() {
   const [page, setPage] = useState(1)
   const [filterType, setFilterType] = useState('ALL')
+  const [processingItemId, setProcessingItemId] = useState(null)
   const queryClient = useQueryClient()
 
   const { data, isLoading, refetch } = useQuery({
@@ -202,6 +201,9 @@ export default function Review() {
         reviewer,
       }),
     onMutate: async ({ id }) => {
+      // Set processing state
+      setProcessingItemId(id)
+
       // Cancel outgoing refetches
       await queryClient.cancelQueries(['pending-reviews'])
 
@@ -219,6 +221,11 @@ export default function Review() {
     onError: (err, variables, context) => {
       // Rollback on error
       queryClient.setQueryData(['pending-reviews', page], context.previousData)
+      setProcessingItemId(null)
+    },
+    onSuccess: () => {
+      // Clear processing state on success
+      setProcessingItemId(null)
     },
     onSettled: () => {
       // Always refetch after error or success
@@ -306,6 +313,7 @@ export default function Review() {
                   key={item.id}
                   item={item}
                   onReview={handleReview}
+                  isProcessingItem={processingItemId}
                 />
               ))}
             </AnimatePresence>
