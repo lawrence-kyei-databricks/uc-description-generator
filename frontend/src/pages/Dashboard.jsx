@@ -103,7 +103,7 @@ export default function Dashboard() {
             <img
               src="/carmax-logo.png"
               alt="CarMax Logo"
-              className="h-16 w-16 object-contain bg-white rounded-lg p-2"
+              className="h-14 w-auto object-contain"
             />
             <div>
               <h2 className="text-3xl font-bold mb-2">Unity Catalog Description Generator</h2>

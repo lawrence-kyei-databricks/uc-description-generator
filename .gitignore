@@ -34,6 +34,9 @@ yarn-error.log*
 frontend/dist/
 # static/ - MUST be committed for Databricks Apps deployment
 
+# CarMax proprietary logo
+static/carmax-logo.png
+
 # Environment
 .env
 .env.local
