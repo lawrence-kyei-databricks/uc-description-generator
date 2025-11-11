@@ -389,7 +389,7 @@ class DescriptionService:
         self.execute_sql(insert_sql)
 
     def get_pending_reviews(self, limit: int = 100, offset: int = 0) -> List[Dict]:
-        """Get descriptions for review - sorted by status then date"""
+        """Get descriptions pending review - ONLY returns items with PENDING status"""
         query = f"""
         SELECT
             id,
@@ -409,14 +409,8 @@ class DescriptionService:
             reviewed_at,
             model_used
         FROM {GOVERNANCE_TABLE}
-        WHERE review_status IN ('PENDING', 'APPROVED', 'APPLIED')
-        ORDER BY
-            CASE review_status
-                WHEN 'PENDING' THEN 1
-                WHEN 'APPROVED' THEN 2
-                WHEN 'APPLIED' THEN 3
-            END,
-            generated_at DESC
+        WHERE review_status = 'PENDING'
+        ORDER BY generated_at DESC
         LIMIT {limit} OFFSET {offset}
         """
 
