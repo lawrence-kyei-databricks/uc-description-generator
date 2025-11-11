@@ -526,10 +526,10 @@ class DescriptionService:
                     IS '{escaped_desc}'
                     """
                 else:
+                    # For columns, use COMMENT ON COLUMN syntax (same as table)
                     apply_sql = f"""
-                    ALTER TABLE {item['catalog_name']}.{item['schema_name']}.{item['table_name']}
-                    ALTER COLUMN {item['column_name']}
-                    COMMENT '{escaped_desc}'
+                    COMMENT ON COLUMN {item['catalog_name']}.{item['schema_name']}.{item['table_name']}.{item['column_name']}
+                    IS '{escaped_desc}'
                     """
 
                 print(f"Applying: {item['object_type']} {item['catalog_name']}.{item['schema_name']}.{item['table_name']}" +

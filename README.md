@@ -106,20 +106,47 @@ databricks bundle deploy -t dev
 
 ### 5. Grant Permissions
 
-Grant the app's service principal necessary permissions:
+Grant the app's service principal necessary permissions. First, get your service principal ID:
+
+```bash
+# Get the service principal client ID
+databricks apps get uc-description-generator --profile your-profile | grep service_principal_client_id
+```
+
+Then grant the required permissions:
 
 ```sql
--- Grant warehouse access
+-- 1. Grant warehouse access (REQUIRED)
 GRANT USAGE ON WAREHOUSE `your-warehouse-name` TO `service-principal-id`;
 
--- Grant catalog access
+-- 2. Grant governance table access (REQUIRED)
 GRANT USAGE ON CATALOG main TO `service-principal-id`;
-GRANT SELECT ON CATALOG main TO `service-principal-id`;
-
--- Grant governance schema access
 GRANT USAGE ON SCHEMA main.governance TO `service-principal-id`;
 GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `service-principal-id`;
+
+-- 3. Grant access to catalogs/schemas you want to document (REQUIRED)
+-- The service principal needs SELECT (to read metadata) and MODIFY (to set comments)
+-- on all tables you want to document. Examples:
+
+-- Option A: Grant on entire catalog (easiest)
+GRANT USAGE ON CATALOG your_catalog TO `service-principal-id`;
+GRANT SELECT ON CATALOG your_catalog TO `service-principal-id`;
+GRANT MODIFY ON CATALOG your_catalog TO `service-principal-id`;
+
+-- Option B: Grant on specific schema
+GRANT USAGE ON CATALOG your_catalog TO `service-principal-id`;
+GRANT USAGE ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
+GRANT SELECT ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
+GRANT MODIFY ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
+
+-- Option C: Grant on specific table (most restrictive)
+GRANT USAGE ON CATALOG your_catalog TO `service-principal-id`;
+GRANT USAGE ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
+GRANT SELECT ON TABLE your_catalog.your_schema.your_table TO `service-principal-id`;
+GRANT MODIFY ON TABLE your_catalog.your_schema.your_table TO `service-principal-id`;
 ```
+
+**Note**: `MODIFY` permission is required to set table and column comments. Without it, the apply step will fail.
 
 ## Usage
 
