@@ -99,11 +99,18 @@ export default function Dashboard() {
       {/* Hero Section */}
       <div className="card bg-gradient-to-r from-databricks-red to-red-600 text-white">
         <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-3xl font-bold mb-2">Unity Catalog Description Generator</h2>
-            <p className="text-red-100 text-lg">
-              AI-powered table and column documentation for compliance and governance
-            </p>
+          <div className="flex items-center space-x-4">
+            <img
+              src="/carmax-logo.png"
+              alt="CarMax Logo"
+              className="h-16 w-16 object-contain bg-white rounded-lg p-2"
+            />
+            <div>
+              <h2 className="text-3xl font-bold mb-2">Unity Catalog Description Generator</h2>
+              <p className="text-red-100 text-lg">
+                AI-powered table and column documentation for compliance and governance
+              </p>
+            </div>
           </div>
           <Database className="w-20 h-20 opacity-50" />
         </div>
