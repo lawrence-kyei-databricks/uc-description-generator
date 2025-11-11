@@ -957,6 +957,12 @@ def serve_assets(path):
     """Serve React assets (JS, CSS, images)"""
     return send_from_directory(os.path.join(app.static_folder, 'assets'), path)
 
+# Serve static files (images, etc.)
+@app.route('/carmax-logo.png')
+def serve_logo():
+    """Serve CarMax logo"""
+    return send_from_directory(app.static_folder, 'carmax-logo.png')
+
 # Serve React app
 @app.route('/', defaults={'path': ''})
 @app.route('/<path:path>')
@@ -965,6 +971,11 @@ def serve_react(path):
     # Don't intercept API calls
     if path.startswith('api/'):
         return jsonify({'error': 'Not found'}), 404
+
+    # Check if static file exists (for images, etc.)
+    static_file_path = os.path.join(app.static_folder, path)
+    if os.path.isfile(static_file_path):
+        return send_from_directory(app.static_folder, path)
 
     # For all other routes, serve the React app
     return send_from_directory(app.static_folder, 'index.html')
