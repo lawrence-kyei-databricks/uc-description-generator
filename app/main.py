@@ -490,6 +490,8 @@ class DescriptionService:
 
     def apply_approved_descriptions(self) -> Dict:
         """Apply approved descriptions to UC"""
+        print("Starting apply_approved_descriptions...")
+
         # Get approved items
         query = f"""
         SELECT id, object_type, catalog_name, schema_name, table_name, column_name, approved_description
@@ -498,11 +500,17 @@ class DescriptionService:
         """
 
         approved = self.execute_sql(query)
+        print(f"Found {len(approved)} approved descriptions to apply")
+
         applied_count = 0
         error_count = 0
+        errors = []
 
         for item in approved:
             try:
+                # Debug: Print the item details
+                print(f"Processing item: id={item.get('id')} (type: {type(item.get('id'))}), object_type={item.get('object_type')}")
+
                 # Validate identifiers
                 self._validate_identifier(item['catalog_name'], "catalog")
                 self._validate_identifier(item['schema_name'], "schema")
@@ -524,25 +532,50 @@ class DescriptionService:
                     COMMENT '{escaped_desc}'
                     """
 
+                print(f"Applying: {item['object_type']} {item['catalog_name']}.{item['schema_name']}.{item['table_name']}" +
+                      (f".{item['column_name']}" if item['column_name'] else ""))
                 self.execute_sql(apply_sql)
+                print(f"Successfully applied!")
 
                 # Mark as applied
-                if not isinstance(item['id'], int) or item['id'] <= 0:
-                    raise ValueError("Invalid record ID")
+                record_id = item.get('id')
+                print(f"DEBUG: Raw record_id from item: {record_id}, type: {type(record_id)}")
+
+                # Convert to int if needed (Databricks may return as string, long, Decimal, etc.)
+                try:
+                    if record_id is None:
+                        raise ValueError(f"Record ID is None for item: {item}")
+
+                    # Convert to int regardless of type
+                    record_id = int(record_id)
+                    print(f"DEBUG: Converted record_id: {record_id}")
+                except (ValueError, TypeError) as e:
+                    raise ValueError(f"Invalid record ID: {record_id} (type: {type(record_id)}). Error: {e}")
+
+                print(f"Marking record {record_id} as applied")
                 update_sql = f"""
                 UPDATE {GOVERNANCE_TABLE}
                 SET review_status = 'APPLIED', applied_at = current_timestamp()
-                WHERE id = {item['id']}
+                WHERE id = {record_id}
                 """
                 self.execute_sql(update_sql)
+                print(f"Record {record_id} marked as APPLIED")
 
                 applied_count += 1
 
             except Exception as e:
-                print(f"Error applying description for {item['object_type']}: {e}")
+                error_msg = f"Error applying description for {item['object_type']} {item.get('catalog_name')}.{item.get('schema_name')}.{item.get('table_name')}: {str(e)}"
+                print(error_msg)
+                errors.append(error_msg)
                 error_count += 1
 
-        return {'applied': applied_count, 'errors': error_count}
+        print(f"Apply complete: {applied_count} applied, {error_count} errors")
+        return {
+            'applied_count': applied_count,
+            'error_count': error_count,
+            'total_approved': len(approved),
+            'errors': errors
+        }
 
 
 # Lazy initialize service (will be created on first request)
@@ -684,6 +717,43 @@ def api_review(record_id):
         get_service().update_review_status(record_id, status, approved_desc, reviewer)
 
         return jsonify({'success': True, 'message': f'Review status updated to {status}'})
+
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/review/bulk', methods=['POST'])
+def api_review_bulk():
+    """Bulk update review status for multiple records"""
+    try:
+        data = request.json
+        reviews = data.get('reviews', [])  # [{id, status, approved_description, reviewer}, ...]
+
+        if not reviews:
+            return jsonify({'success': False, 'error': 'No reviews provided'}), 400
+
+        results = []
+        errors = []
+
+        for review in reviews:
+            try:
+                record_id = review['id']
+                status = review['status']
+                approved_desc = review.get('approved_description')
+                reviewer = review.get('reviewer', 'unknown')
+
+                get_service().update_review_status(record_id, status, approved_desc, reviewer)
+                results.append({'id': record_id, 'success': True})
+            except Exception as e:
+                errors.append({'id': review.get('id'), 'error': str(e)})
+
+        return jsonify({
+            'success': len(errors) == 0,
+            'processed': len(results),
+            'failed': len(errors),
+            'results': results,
+            'errors': errors
+        })
 
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

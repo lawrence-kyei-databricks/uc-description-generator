@@ -14,28 +14,31 @@ import {
 } from 'lucide-react'
 import { descriptionService } from '../services/api'
 
-const ReviewCard = ({ item, onReview }) => {
+const ReviewCard = ({ item, onReview, isSubmitting }) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editedDescription, setEditedDescription] = useState(item.ai_generated_description)
   const [reviewer, setReviewer] = useState('')
+  const [isProcessing, setIsProcessing] = useState(false)
 
   const isTable = item.object_type === 'TABLE'
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     if (!reviewer.trim()) {
       alert('Please enter your name/email as reviewer')
       return
     }
-    onReview(item.id, 'APPROVED', editedDescription, reviewer)
+    setIsProcessing(true)
+    await onReview(item.id, 'APPROVED', editedDescription, reviewer)
   }
 
-  const handleReject = () => {
+  const handleReject = async () => {
     if (!reviewer.trim()) {
       alert('Please enter your name/email as reviewer')
       return
     }
     if (confirm('Are you sure you want to reject this description?')) {
-      onReview(item.id, 'REJECTED', null, reviewer)
+      setIsProcessing(true)
+      await onReview(item.id, 'REJECTED', null, reviewer)
     }
   }
 
@@ -45,7 +48,7 @@ const ReviewCard = ({ item, onReview }) => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
-      className="card hover:shadow-lg transition-all"
+      className="card hover:shadow-lg transition-all relative"
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
@@ -133,25 +136,50 @@ const ReviewCard = ({ item, onReview }) => {
       {/* Actions */}
       <div className="flex space-x-3">
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: isProcessing ? 1 : 1.02 }}
+          whileTap={{ scale: isProcessing ? 1 : 0.98 }}
           onClick={handleApprove}
-          className="flex-1 btn btn-success flex items-center justify-center space-x-2"
+          disabled={isProcessing}
+          className={`flex-1 btn btn-success flex items-center justify-center space-x-2 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
-          <CheckCircle className="w-4 h-4" />
-          <span>Approve</span>
+          {isProcessing ? (
+            <>
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+              <span>Processing...</span>
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              <span>Approve</span>
+            </>
+          )}
         </motion.button>
 
         <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
+          whileHover={{ scale: isProcessing ? 1 : 1.02 }}
+          whileTap={{ scale: isProcessing ? 1 : 0.98 }}
           onClick={handleReject}
-          className="flex-1 btn btn-danger flex items-center justify-center space-x-2"
+          disabled={isProcessing}
+          className={`flex-1 btn btn-danger flex items-center justify-center space-x-2 ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
         >
           <XCircle className="w-4 h-4" />
           <span>Reject</span>
         </motion.button>
       </div>
+
+      {/* Processing Overlay */}
+      {isProcessing && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center rounded-xl"
+        >
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-databricks-red mx-auto mb-2"></div>
+            <p className="text-sm text-gray-600">Updating...</p>
+          </div>
+        </motion.div>
+      )}
     </motion.div>
   )
 }
@@ -173,7 +201,27 @@ export default function Review() {
         approved_description: description,
         reviewer,
       }),
-    onSuccess: () => {
+    onMutate: async ({ id }) => {
+      // Cancel outgoing refetches
+      await queryClient.cancelQueries(['pending-reviews'])
+
+      // Snapshot previous value
+      const previousData = queryClient.getQueryData(['pending-reviews', page])
+
+      // Optimistically update - remove item from list
+      queryClient.setQueryData(['pending-reviews', page], (old) => ({
+        ...old,
+        pending: old?.pending?.filter(item => item.id !== id) || []
+      }))
+
+      return { previousData }
+    },
+    onError: (err, variables, context) => {
+      // Rollback on error
+      queryClient.setQueryData(['pending-reviews', page], context.previousData)
+    },
+    onSettled: () => {
+      // Always refetch after error or success
       queryClient.invalidateQueries(['pending-reviews'])
       queryClient.invalidateQueries(['stats'])
     },

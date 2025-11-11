@@ -1,6 +1,7 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Shield, TrendingUp, Users, Clock, Download, CheckCircle2 } from 'lucide-react'
+import { Shield, TrendingUp, Users, Clock, Download, CheckCircle2, Upload } from 'lucide-react'
 import { descriptionService } from '../services/api'
 import {
   PieChart,
@@ -19,6 +20,9 @@ import {
 const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#3b82f6']
 
 export default function Compliance() {
+  const [isApplying, setIsApplying] = useState(false)
+  const queryClient = useQueryClient()
+
   const { data: stats } = useQuery({
     queryKey: ['stats'],
     queryFn: descriptionService.getStats,
@@ -33,6 +37,32 @@ export default function Compliance() {
     queryKey: ['review-activity'],
     queryFn: descriptionService.getReviewActivity,
   })
+
+  const applyMutation = useMutation({
+    mutationFn: descriptionService.applyDescriptions,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['stats'])
+      queryClient.invalidateQueries(['schema-progress'])
+      alert(`Successfully applied ${data.results?.applied_count || 0} descriptions to Unity Catalog!`)
+      setIsApplying(false)
+    },
+    onError: (error) => {
+      alert(`Failed to apply descriptions: ${error.message}`)
+      setIsApplying(false)
+    },
+  })
+
+  const handleApply = async () => {
+    if (!statsData.approved || statsData.approved === 0) {
+      alert('No approved descriptions to apply')
+      return
+    }
+
+    if (confirm(`Apply ${statsData.approved} approved descriptions to Unity Catalog?`)) {
+      setIsApplying(true)
+      applyMutation.mutate()
+    }
+  }
 
   const statsData = stats?.stats || {}
   const schemas = schemaProgress?.schema_progress || []
@@ -66,13 +96,41 @@ export default function Compliance() {
       {/* Header */}
       <div className="card bg-gradient-to-r from-blue-500 to-blue-600 text-white">
         <div className="flex items-center justify-between">
-          <div>
+          <div className="flex-1">
             <h2 className="text-3xl font-bold mb-2">Compliance Dashboard</h2>
             <p className="text-blue-100">
               Track documentation coverage and compliance status across Unity Catalog
             </p>
           </div>
-          <Shield className="w-16 h-16 opacity-50" />
+          <div className="flex items-center space-x-4">
+            <motion.button
+              whileHover={{ scale: isApplying ? 1 : 1.05 }}
+              whileTap={{ scale: isApplying ? 1 : 0.95 }}
+              onClick={handleApply}
+              disabled={isApplying || !statsData.approved || statsData.approved === 0}
+              className={`
+                px-6 py-3 rounded-lg font-semibold shadow-lg
+                flex items-center space-x-2 transition-all
+                ${isApplying || !statsData.approved || statsData.approved === 0
+                  ? 'bg-gray-300 cursor-not-allowed'
+                  : 'bg-white text-blue-600 hover:bg-blue-50'
+                }
+              `}
+            >
+              {isApplying ? (
+                <>
+                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                  <span>Applying...</span>
+                </>
+              ) : (
+                <>
+                  <Upload className="w-5 h-5" />
+                  <span>Apply {statsData.approved || 0} Approved</span>
+                </>
+              )}
+            </motion.button>
+            <Shield className="w-16 h-16 opacity-50" />
+          </div>
         </div>
       </div>
 
