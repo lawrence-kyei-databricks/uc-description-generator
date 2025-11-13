@@ -2,7 +2,7 @@
 
 An AI-powered web application for generating and managing Unity Catalog table and column descriptions with human-in-the-loop review workflow.
 
-## 📚 Documentation
+## Documentation
 
 - **README.md** (this file) - Quick start and technical reference
 - **[User Guide](docs/User_Guide.md)** - Complete step-by-step guide for end users
@@ -250,11 +250,11 @@ sample_data = []
 ```
 
 **Trade-offs:**
-- ✅ **More secure**: No actual data is processed by the AI model
-- ✅ **Faster**: Skips data retrieval queries
-- ✅ **Compliance-friendly**: Only column names and types are analyzed
-- ⚠️ **Lower quality**: Descriptions may be less accurate without data context
-- ⚠️ **Generic descriptions**: AI relies only on naming conventions
+- **More secure**: No actual data is processed by the AI model
+- **Faster**: Skips data retrieval queries
+- **Compliance-friendly**: Only column names and types are analyzed
+- **Lower quality**: Descriptions may be less accurate without data context
+- **Generic descriptions**: AI relies only on naming conventions
 
 **Recommendation:** Use metadata-only mode for highly sensitive data. For general use cases, sample data significantly improves description quality.
 
@@ -503,4 +503,4 @@ For issues and questions:
 
 ---
 
-**Built with ❤️ using Databricks Apps, SQL AI Functions, and React**
+**Built using Databricks Apps, SQL AI Functions, and React**
