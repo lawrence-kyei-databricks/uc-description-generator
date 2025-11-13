@@ -9,8 +9,8 @@ targets:
   dev:
     mode: development
     workspace:
-      host: https://e2-demo-field-eng.cloud.databricks.com
-      profile: e2-demo-field-eng
+      host: https://your-workspace.cloud.databricks.com  # Replace with your workspace URL
+      profile: your-profile  # Replace with your Databricks CLI profile name
 
     resources:
       apps:
@@ -19,12 +19,12 @@ targets:
           description: "UC Description Generator - Development"
           source_code_path: .
 
-  # Production environment
+  # Production environment (optional)
   prod:
     mode: production
     workspace:
-      host: https://e2-demo-field-eng.cloud.databricks.com
-      profile: e2-demo-field-eng
+      host: https://your-workspace.cloud.databricks.com  # Replace with your workspace URL
+      profile: your-profile  # Replace with your Databricks CLI profile name
 
     resources:
       apps:
