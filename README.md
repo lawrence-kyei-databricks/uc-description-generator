@@ -327,25 +327,173 @@ uc-description-app/
 
 ## Troubleshooting
 
+### App Deployment Issues
+
+**Problem:** App fails to deploy or shows errors after deployment
+
+**Common Causes & Solutions:**
+
+1. **Check frontend build exists:**
+   ```bash
+   ls -la static/
+   # Should see index.html and assets/ folder
+
+   # If missing, rebuild:
+   cd frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+
+2. **Verify app.yml configuration:**
+   - Ensure `WAREHOUSE_ID` is set correctly in both `resources` and `env` sections
+   - Generate a new `FLASK_SECRET_KEY` if using default:
+     ```bash
+     python -c "import secrets; print(secrets.token_hex(32))"
+     ```
+
+3. **Check app status:**
+   ```bash
+   databricks apps get uc-description-generator --profile your-profile
+   ```
+
+4. **View app logs:**
+   ```bash
+   databricks apps logs uc-description-generator --profile your-profile
+   ```
+
+### Permission Issues (Most Common)
+
+**Problem:** "Permission denied", "Forbidden", or "Access denied" errors
+
+**Solution:** The app's service principal needs proper grants. Follow these steps:
+
+1. **Get the service principal ID:**
+   ```bash
+   databricks apps get uc-description-generator --profile your-profile | grep service_principal_client_id
+   ```
+
+2. **Verify current permissions:**
+   ```sql
+   -- Check warehouse access
+   SHOW GRANTS ON WAREHOUSE `your-warehouse-name`;
+
+   -- Check catalog access
+   SHOW GRANTS ON CATALOG main;
+
+   -- Check governance table access
+   SHOW GRANTS ON TABLE main.governance.description_governance;
+   ```
+
+3. **Grant required permissions:**
+   ```sql
+   -- Warehouse access (REQUIRED)
+   GRANT USAGE ON WAREHOUSE `your-warehouse-name` TO `<service-principal-id>`;
+
+   -- Governance table access (REQUIRED)
+   GRANT USAGE ON CATALOG main TO `<service-principal-id>`;
+   GRANT USAGE ON SCHEMA main.governance TO `<service-principal-id>`;
+   GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `<service-principal-id>`;
+
+   -- Access to catalogs you want to document (REQUIRED)
+   GRANT USAGE ON CATALOG your_catalog TO `<service-principal-id>`;
+   GRANT SELECT ON CATALOG your_catalog TO `<service-principal-id>`;
+   GRANT MODIFY ON CATALOG your_catalog TO `<service-principal-id>`;
+   ```
+
+**Note:** `MODIFY` permission is essential for setting table/column comments.
+
 ### "Model endpoint does not exist"
 
-Update `MODEL_ENDPOINT` in `app.yml` to an available Foundation Model endpoint:
+**Problem:** AI generation fails with endpoint error
+
+**Solution:** Update `MODEL_ENDPOINT` in `app.yml` to an available Foundation Model:
 
 ```bash
-# List available endpoints
-databricks serving-endpoints list | grep databricks
+# List available Foundation Model endpoints
+databricks serving-endpoints list --profile your-profile | grep databricks
+
+# Common options:
+# - databricks-meta-llama-3-3-70b-instruct (recommended)
+# - databricks-meta-llama-3-1-70b-instruct
+# - databricks-dbrx-instruct
 ```
-
-### "Permission denied" errors
-
-Ensure the service principal has proper grants:
-- Warehouse usage
-- Catalog/schema/table access
-- Governance table permissions
 
 ### "Table not found" errors
 
-Run the governance table setup SQL script first.
+**Problem:** Governance table doesn't exist
+
+**Solution:** Run the setup SQL script:
+
+```sql
+-- Create governance schema
+CREATE SCHEMA IF NOT EXISTS main.governance;
+
+-- Create governance table
+CREATE TABLE IF NOT EXISTS main.governance.description_governance (
+    id BIGINT GENERATED ALWAYS AS IDENTITY,
+    object_type STRING NOT NULL,
+    catalog_name STRING NOT NULL,
+    schema_name STRING NOT NULL,
+    table_name STRING,
+    column_name STRING,
+    data_type STRING,
+    generated_description STRING NOT NULL,
+    approved_description STRING,
+    review_status STRING DEFAULT 'PENDING',
+    reviewer STRING,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    metadata STRING
+);
+```
+
+Or use the included script:
+```bash
+# Run setup_governance.sql in Databricks SQL Editor
+cat setup_governance.sql
+```
+
+### App loads but shows no data
+
+**Checklist:**
+1. Governance table exists and is accessible
+2. Service principal has SELECT access to `system.information_schema`
+3. Service principal has access to catalogs you want to document
+4. Warehouse is running and accessible
+
+### "Failed to execute query" errors
+
+**Possible causes:**
+1. **Warehouse not running:** Start your SQL Warehouse
+2. **Warehouse ID incorrect:** Verify ID in `app.yml` matches your warehouse
+3. **Query timeout:** Increase timeout for large catalogs
+4. **SQL syntax error:** Check app logs for details
+
+### Getting Help
+
+If issues persist:
+
+1. **Check app logs:**
+   ```bash
+   databricks apps logs uc-description-generator --profile your-profile
+   ```
+
+2. **Verify configuration:**
+   - Review `app.yml` for correct warehouse ID
+   - Ensure `static/` folder is deployed with built frontend
+   - Confirm service principal has all required permissions
+
+3. **Test warehouse connectivity:**
+   ```bash
+   databricks warehouses get <warehouse-id> --profile your-profile
+   ```
+
+4. **Common error patterns:**
+   - `403 Forbidden` → Service principal permissions issue
+   - `404 Not Found` → Table/endpoint doesn't exist
+   - `500 Internal Server Error` → Check app logs for Python traceback
+   - `Connection refused` → Warehouse not running
 
 ## Security Considerations
 
