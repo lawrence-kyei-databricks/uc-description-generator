@@ -177,8 +177,8 @@ GRANT MODIFY ON TABLE your_catalog.your_schema.your_table TO `service-principal-
 
 ### Apply to Unity Catalog
 
-1. Navigate to the **Compliance** page
-2. Click **Apply Approved Descriptions**
+1. Navigate to the **Dashboard** or **Compliance** page
+2. Click **Apply to UC** (Dashboard) or **Apply Approved Descriptions** (Compliance)
 3. Approved descriptions will be written to Unity Catalog using `COMMENT` statements
 
 ### Monitor Progress
