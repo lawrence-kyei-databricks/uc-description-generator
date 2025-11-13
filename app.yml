@@ -9,16 +9,16 @@ resources:
   - name: warehouse
     description: SQL warehouse for UC operations
     warehouse:
-      id: "8baced1ff014912d"
+      id: "YOUR_WAREHOUSE_ID_HERE"  # Replace with your SQL Warehouse ID
 
 env:
   - name: TARGET_CATALOG
-    value: "main"
+    value: "main"  # Catalog where governance table will be created
   - name: GOVERNANCE_SCHEMA
-    value: "governance"
+    value: "governance"  # Schema for governance table
   - name: MODEL_ENDPOINT
-    value: "databricks-meta-llama-3-3-70b-instruct"
+    value: "databricks-meta-llama-3-3-70b-instruct"  # Foundation Model endpoint name
   - name: WAREHOUSE_ID
-    value: "8baced1ff014912d"
+    value: "YOUR_WAREHOUSE_ID_HERE"  # Replace with your SQL Warehouse ID
   - name: FLASK_SECRET_KEY
-    value: "06f9cece80436035b50577079ca52b2acf5963fc01bacde3ee48075caf45cce1"
+    value: "YOUR_SECRET_KEY_HERE"  # Generate with: python -c "import secrets; print(secrets.token_hex(32))"

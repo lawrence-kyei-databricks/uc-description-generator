@@ -2,6 +2,12 @@
 
 An AI-powered web application for generating and managing Unity Catalog table and column descriptions with human-in-the-loop review workflow.
 
+## 📚 Documentation
+
+- **README.md** (this file) - Quick start and technical reference
+- **[User Guide](docs/User_Guide.md)** - Complete step-by-step guide for end users
+- **[MCP vs UC Description Generator](docs/MCP_vs_UC_Description_Generator_Technical_Overview.md)** - Technical comparison with Model Context Protocol approach
+
 ## Features
 
 - **AI-Powered Generation**: Uses Databricks SQL AI Functions with Llama 3.3 70B to generate intelligent descriptions
@@ -225,6 +231,33 @@ The **Dashboard** page shows:
 - `WAREHOUSE_ID`: SQL Warehouse ID (required)
 - `FLASK_SECRET_KEY`: Flask session secret (required)
 
+### Metadata-Only Mode (No Sample Data)
+
+By default, the app retrieves **5 sample rows** from each table to provide context for better AI-generated descriptions. If you have **PII/sensitive data concerns** or prefer metadata-only generation, you can disable sample data collection.
+
+**To enable metadata-only mode:**
+
+Edit `app/main.py` around line 296-302 and comment out or remove the sample data collection:
+
+```python
+# Get sample data (safely) - DISABLED FOR METADATA-ONLY MODE
+sample_data = []
+# try:
+#     sample_query = f"SELECT * FROM {catalog}.{schema}.{table} LIMIT 5"
+#     sample_data = self.execute_sql(sample_query)
+# except:
+#     pass
+```
+
+**Trade-offs:**
+- ✅ **More secure**: No actual data is processed by the AI model
+- ✅ **Faster**: Skips data retrieval queries
+- ✅ **Compliance-friendly**: Only column names and types are analyzed
+- ⚠️ **Lower quality**: Descriptions may be less accurate without data context
+- ⚠️ **Generic descriptions**: AI relies only on naming conventions
+
+**Recommendation:** Use metadata-only mode for highly sensitive data. For general use cases, sample data significantly improves description quality.
+
 ### Databricks Bundle (databricks.yml)
 
 ```yaml
@@ -316,18 +349,130 @@ Run the governance table setup SQL script first.
 
 ## Security Considerations
 
-- App uses service principal authentication (app authorization)
-- No user credentials are stored or transmitted
-- All API calls use the app's service principal identity
-- SQL injection prevention through parameterized queries
-- FLASK_SECRET_KEY should be a secure random value in production
+- **Authentication**: App uses service principal authentication (app authorization)
+- **No user credentials stored**: All API calls use the app's service principal identity
+- **Data privacy**: By default, app reads 5 sample rows for AI context. See "Metadata-Only Mode" section to disable this for sensitive data
+- **SQL injection prevention**: All queries use parameterized statements and input validation
+- **Secret management**: FLASK_SECRET_KEY should be a secure random value in production (never commit to git)
+- **Audit trail**: All reviews are logged with reviewer name and timestamp in governance table
 
-## Performance
+## Performance & Cost
 
+### Performance
 - Table listing queries exclude correlated subqueries for speed
 - Batch generation processes multiple tables in parallel
 - SQL AI Functions execute directly in the warehouse (no network overhead)
 - Frontend uses React Query for efficient caching
+
+### Cost Estimates
+Typical usage costs approximately **$10-25/month** depending on volume:
+
+- **SQL Warehouse**: DBUs per second for query execution (~$0.50/DBU for SQL Pro)
+- **Foundation Model API**: Pay-per-token for Llama 3.3 70B (~$15 per 1M tokens)
+- **Databricks App**: Minimal hosting overhead
+
+**Example**: Generating 1,000 descriptions/month ≈ $15-20 total cost
+
+For detailed cost analysis, see [Cost Breakdown](#when-to-use-each-approach) section.
+
+## Alternative Approaches (No UI)
+
+If you don't need the web interface, you can use Databricks SQL AI Functions directly for simpler, lightweight documentation workflows.
+
+### Option 1: Direct SQL AI Functions
+
+Execute AI functions directly in Databricks SQL or notebooks:
+
+```sql
+-- Generate table description
+SELECT ai_query(
+  'databricks-meta-llama-3-3-70b-instruct',
+  CONCAT(
+    'Generate a concise 1-2 sentence description for a database table named ',
+    table_name,
+    ' with columns: ',
+    columns_list,
+    '. Explain its business purpose.'
+  )
+) as description
+FROM your_metadata_query;
+
+-- Apply description
+COMMENT ON TABLE catalog.schema.table_name IS 'Your generated description';
+```
+
+**Pros:** Simple, no deployment needed
+**Cons:** No workflow, no governance tracking, manual process
+
+### Option 2: Databricks Workflows
+
+Create a Databricks Workflow (Job) that runs on a schedule:
+
+```python
+# notebook: generate_descriptions.py
+from databricks.sdk import WorkspaceClient
+
+w = WorkspaceClient()
+
+# Query tables needing descriptions
+tables = w.statement_execution.execute_statement(
+    statement="""
+    SELECT table_catalog, table_schema, table_name, comment
+    FROM system.information_schema.tables
+    WHERE comment IS NULL OR comment = ''
+    """,
+    warehouse_id=warehouse_id
+)
+
+# Generate and apply descriptions
+for table in tables:
+    # Generate with AI
+    description = w.statement_execution.execute_statement(
+        statement=f"""
+        SELECT ai_query(
+            'databricks-meta-llama-3-3-70b-instruct',
+            'Generate description for table {table.table_name}...'
+        )
+        """,
+        warehouse_id=warehouse_id
+    )
+
+    # Apply to UC
+    w.statement_execution.execute_statement(
+        statement=f"""
+        COMMENT ON TABLE {table.table_catalog}.{table.table_schema}.{table.table_name}
+        IS '{description}'
+        """,
+        warehouse_id=warehouse_id
+    )
+```
+
+Schedule this workflow to run weekly/monthly for continuous documentation.
+
+**Pros:** Automated, scheduled, serverless
+**Cons:** No human review, no governance UI, limited error handling
+
+### Option 3: Custom MCP Servers
+
+For power users with Claude Desktop or other LLM clients, build custom Model Context Protocol servers:
+
+1. **Unity Catalog MCP** - Read metadata, write descriptions
+2. **Foundation Model MCP** - Generate descriptions via AI
+3. **Governance MCP** - Track reviews and compliance
+
+See `docs/MCP_vs_UC_Description_Generator_Technical_Overview.md` for detailed implementation guide.
+
+**Pros:** Natural language interaction, flexible workflows
+**Cons:** Complex setup, requires MCP knowledge, no persistent UI
+
+### When to Use Each Approach
+
+| Approach | Best For | Complexity |
+|----------|----------|-----------|
+| **UC Description Generator (this app)** | Enterprise teams, compliance-driven, human-in-the-loop workflows | Medium |
+| **Direct SQL AI Functions** | Quick one-off documentation, simple use cases | Low |
+| **Databricks Workflows** | Automated scheduled documentation, no UI needed | Medium |
+| **Custom MCP Servers** | Power users, ad-hoc exploration, developer workflows | High |
 
 ## Future Enhancements
 
