@@ -192,11 +192,14 @@ CREATE TABLE IF NOT EXISTS main.governance.description_governance (
 
 1. In Databricks workspace, open `uc-description-generator/app.yml`
 2. Find your warehouse ID: Go to **SQL Warehouses** → Click your warehouse → Copy the ID from URL
-3. Generate secret key in a notebook:
-   ```python
-   import secrets
-   print(secrets.token_hex(32))  # Copy this output
-   ```
+3. Generate a secret key using your browser console:
+   - Press `F12` to open browser DevTools
+   - Go to the **Console** tab
+   - Paste and run: `Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')`
+   - Copy the generated 64-character string
+
+   Or use an online generator: https://www.browserling.com/tools/random-hex
+
 4. Update `app.yml` with your warehouse ID and secret key
 
 #### Step 4: Build Frontend
