@@ -307,8 +307,8 @@ Or use the Databricks UI: **Compute** → **Apps** → **uc-description-generato
 **Using Databricks UI (Easiest):**
 1. Go to **Compute** → **Apps**
 2. Click on your app (e.g., `uc-description-generator` or `test-uc-ds`)
-3. Go to the **Configuration** tab
-4. Copy the **Service Principal Client ID**
+3. Go to the **Authorization** tab
+4. Copy the **Service Principal** Client ID (looks like: `12345678-1234-1234-1234-123456789abc`)
 
 **Using CLI (Alternative):**
 ```bash
