@@ -323,11 +323,12 @@ databricks apps get uc-description-generator | grep service_principal_client_id
 
 #### Step 2: Grant Required Permissions
 
-Run this SQL in Databricks SQL Editor (replace `<service-principal-id>` with your ID):
+Run this SQL in Databricks SQL Editor (replace placeholders with your values):
 
 ```sql
--- 1. Warehouse access
-GRANT USAGE ON WAREHOUSE `your-warehouse-name` TO `<service-principal-id>`;
+-- 1. Warehouse access (use warehouse ID, not name)
+-- Find your warehouse ID: SQL Warehouses → Click your warehouse → Copy ID from URL
+GRANT USAGE ON WAREHOUSE your_warehouse_id TO `<service-principal-id>`;
 
 -- 2. Governance table access
 GRANT USAGE ON CATALOG main TO `<service-principal-id>`;
@@ -338,6 +339,13 @@ GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `<servic
 GRANT USAGE ON CATALOG your_catalog TO `<service-principal-id>`;
 GRANT SELECT ON CATALOG your_catalog TO `<service-principal-id>`;
 GRANT MODIFY ON CATALOG your_catalog TO `<service-principal-id>`;
+```
+
+**Example with actual values:**
+```sql
+GRANT USAGE ON WAREHOUSE a1b2c3d4e5f6g7h8 TO `12345678-1234-1234-1234-123456789abc`;
+GRANT USAGE ON CATALOG main TO `12345678-1234-1234-1234-123456789abc`;
+-- ... etc
 ```
 
 **Why these permissions?**
