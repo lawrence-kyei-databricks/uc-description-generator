@@ -44,7 +44,32 @@ An AI-powered web application for generating and managing Unity Catalog table an
 
 ## Quick Start
 
-### 1. Setup Governance Table
+### 1. Get the Code
+
+Choose one of the following methods to get the code:
+
+#### Option A: Clone with Git (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/lawrence-kyei-databricks/uc-description-generator.git
+
+# Navigate to the project directory
+cd uc-description-generator
+```
+
+#### Option B: Download ZIP
+
+1. Go to https://github.com/lawrence-kyei-databricks/uc-description-generator
+2. Click the green **Code** button
+3. Select **Download ZIP**
+4. Extract the ZIP file to your local machine
+5. Open terminal and navigate to the extracted folder:
+   ```bash
+   cd /path/to/uc-description-generator
+   ```
+
+### 2. Setup Governance Table
 
 Run the setup SQL to create the governance schema and table:
 
@@ -71,9 +96,19 @@ CREATE TABLE IF NOT EXISTS main.governance.description_governance (
 );
 ```
 
-### 2. Configure Application
+### 3. Configure Application
 
-Update `app.yml` with your warehouse ID:
+Update `app.yml` with your warehouse ID and secret key:
+
+```bash
+# Get your warehouse ID
+databricks warehouses list --profile your-profile
+
+# Generate a secret key
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+
+Edit `app.yml` with your values:
 
 ```yaml
 resources:
@@ -84,17 +119,31 @@ resources:
 env:
   - name: WAREHOUSE_ID
     value: "your-warehouse-id"  # Replace with your SQL Warehouse ID
+  - name: FLASK_SECRET_KEY
+    value: "your-generated-secret-key"  # Replace with generated secret key
 ```
 
-### 3. Build Frontend
+### 4. Build Frontend
 
 ```bash
+# Navigate to frontend directory
 cd frontend
+
+# Install dependencies (requires Node.js 18+)
 npm install
+
+# Build the frontend (creates static/ folder)
 npm run build
+
+# Return to project root
+cd ..
+
+# Verify static files were created
+ls -la static/
+# You should see: index.html and assets/ folder
 ```
 
-### 4. Deploy to Databricks
+### 5. Deploy to Databricks
 
 Choose one of the following deployment methods:
 
@@ -173,7 +222,7 @@ databricks apps get uc-description-generator --profile your-profile | grep url
 databricks apps logs uc-description-generator --profile your-profile
 ```
 
-### 5. Grant Permissions
+### 6. Grant Permissions
 
 Grant the app's service principal necessary permissions. First, get your service principal ID:
 
