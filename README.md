@@ -188,23 +188,19 @@ CREATE TABLE IF NOT EXISTS main.governance.description_governance (
 );
 ```
 
-#### Step 3: Configure app.yml
-
-1. In Databricks workspace, open `uc-description-generator/app.yml`
-2. Find your warehouse ID: Go to **SQL Warehouses** → Click your warehouse → Copy the ID from URL
-3. Generate a secret key using your browser console:
-   - Press `F12` to open browser DevTools
-   - Go to the **Console** tab
-   - Paste and run: `Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('')`
-   - Copy the generated 64-character string
-
-   Or use an online generator: https://www.browserling.com/tools/random-hex
-
-4. Update `app.yml` with your warehouse ID and secret key
-
-#### Step 4: Build Frontend
+#### Step 3: Generate Secret Key and Build Frontend
 
 Create a new notebook in the `uc-description-generator` folder and run:
+
+**Cell 1: Generate Flask Secret Key**
+```python
+import secrets
+secret_key = secrets.token_hex(32)
+print(f"Your FLASK_SECRET_KEY: {secret_key}")
+print("\nCopy this value - you'll need it for app.yml configuration")
+```
+
+**Cell 2: Build Frontend**
 
 ```python
 %sh
@@ -220,6 +216,16 @@ npm run build
 # Verify
 ls -la /Workspace/Users/your.email@company.com/uc-description-generator/static/
 ```
+
+#### Step 4: Configure app.yml
+
+1. In Databricks workspace, open `uc-description-generator/app.yml`
+2. Find your warehouse ID: Go to **SQL Warehouses** → Click your warehouse → Copy the ID from the URL
+3. Update `app.yml` with:
+   - Your warehouse ID (in both `resources.warehouse.id` and `env.WAREHOUSE_ID`)
+   - The secret key you generated in Step 3 (in `env.FLASK_SECRET_KEY`)
+
+**What the secret key is for:** Flask uses it to securely sign session cookies and protect against security attacks. It just needs to be a random string that stays constant for your app.
 
 #### Step 5: Deploy the App
 
