@@ -304,12 +304,22 @@ Or use the Databricks UI: **Compute** → **Apps** → **uc-description-generato
 
 #### Step 1: Get Service Principal ID
 
+**Using Databricks UI (Easiest):**
+1. Go to **Compute** → **Apps**
+2. Click on your app (e.g., `uc-description-generator` or `test-uc-ds`)
+3. Go to the **Configuration** tab
+4. Copy the **Service Principal Client ID**
+
+**Using CLI (Alternative):**
 ```bash
-# Get the service principal ID from your deployed app
 databricks apps get uc-description-generator --profile your-profile | grep service_principal_client_id
 ```
 
-Or find it in Databricks UI: **Compute** → **Apps** → **uc-description-generator** → **Configuration**
+Or in a notebook:
+```python
+%sh
+databricks apps get uc-description-generator | grep service_principal_client_id
+```
 
 #### Step 2: Grant Required Permissions
 
