@@ -433,11 +433,21 @@ The **Dashboard** page shows:
 
 ### Environment Variables (app.yml)
 
+All configuration is done in the `app.yml` file:
+
 - `TARGET_CATALOG`: Default catalog for operations (default: `main`)
 - `GOVERNANCE_SCHEMA`: Schema for governance table (default: `governance`)
-- `MODEL_ENDPOINT`: AI model endpoint (default: `databricks-meta-llama-3-3-70b-instruct`)
+- **`MODEL_ENDPOINT`**: AI model to use for generating descriptions (default: `databricks-meta-llama-3-3-70b-instruct`)
+  - Change this to use a different Foundation Model
+  - Common options: `databricks-meta-llama-3-1-70b-instruct`, `databricks-dbrx-instruct`, `databricks-mixtral-8x7b-instruct`
+  - List available models: `databricks serving-endpoints list --profile your-profile | grep databricks`
 - `WAREHOUSE_ID`: SQL Warehouse ID (required)
 - `FLASK_SECRET_KEY`: Flask session secret (required)
+
+**To change the AI model:**
+1. Edit `app.yml`
+2. Update the `MODEL_ENDPOINT` value under `env:` section
+3. Redeploy the app for changes to take effect
 
 ### Metadata-Only Mode (No Sample Data)
 
