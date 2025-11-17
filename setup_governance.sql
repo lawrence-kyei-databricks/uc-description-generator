@@ -18,7 +18,9 @@ CREATE TABLE IF NOT EXISTS main.governance.description_governance (
     applied_at TIMESTAMP,
     model_used STRING COMMENT 'Model endpoint used for generation',
     metadata STRING COMMENT 'JSON metadata'
-) COMMENT 'Tracks AI-generated descriptions and their review status';
+)
+TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported')
+COMMENT 'Tracks AI-generated descriptions and their review status';
 
 -- NOTE: Grant permissions to the Service Principal manually
 -- Replace <SERVICE_PRINCIPAL_ID> with your app's service principal client ID

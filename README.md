@@ -83,20 +83,24 @@ CREATE SCHEMA IF NOT EXISTS main.governance;
 
 CREATE TABLE IF NOT EXISTS main.governance.description_governance (
     id BIGINT GENERATED ALWAYS AS IDENTITY,
-    object_type STRING NOT NULL,
-    catalog_name STRING NOT NULL,
-    schema_name STRING NOT NULL,
+    object_type STRING COMMENT 'TABLE or COLUMN',
+    catalog_name STRING,
+    schema_name STRING,
     table_name STRING,
     column_name STRING,
-    data_type STRING,
-    generated_description STRING NOT NULL,
-    approved_description STRING,
-    review_status STRING DEFAULT 'PENDING',
-    reviewer STRING,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-    metadata STRING
-);
+    column_data_type STRING,
+    ai_generated_description STRING COMMENT 'AI-generated description',
+    approved_description STRING COMMENT 'Human-approved description',
+    reviewer STRING COMMENT 'User who reviewed',
+    review_status STRING COMMENT 'PENDING, APPROVED, REJECTED, APPLIED',
+    generated_at TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    applied_at TIMESTAMP,
+    model_used STRING COMMENT 'Model endpoint used for generation',
+    metadata STRING COMMENT 'JSON metadata'
+)
+TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported')
+COMMENT 'Tracks AI-generated descriptions and their review status';
 ```
 
 #### Step 3: Configure Application
@@ -172,20 +176,24 @@ CREATE SCHEMA IF NOT EXISTS main.governance;
 
 CREATE TABLE IF NOT EXISTS main.governance.description_governance (
     id BIGINT GENERATED ALWAYS AS IDENTITY,
-    object_type STRING NOT NULL,
-    catalog_name STRING NOT NULL,
-    schema_name STRING NOT NULL,
+    object_type STRING COMMENT 'TABLE or COLUMN',
+    catalog_name STRING,
+    schema_name STRING,
     table_name STRING,
     column_name STRING,
-    data_type STRING,
-    generated_description STRING NOT NULL,
-    approved_description STRING,
-    review_status STRING DEFAULT 'PENDING',
-    reviewer STRING,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
-    metadata STRING
-);
+    column_data_type STRING,
+    ai_generated_description STRING COMMENT 'AI-generated description',
+    approved_description STRING COMMENT 'Human-approved description',
+    reviewer STRING COMMENT 'User who reviewed',
+    review_status STRING COMMENT 'PENDING, APPROVED, REJECTED, APPLIED',
+    generated_at TIMESTAMP,
+    reviewed_at TIMESTAMP,
+    applied_at TIMESTAMP,
+    model_used STRING COMMENT 'Model endpoint used for generation',
+    metadata STRING COMMENT 'JSON metadata'
+)
+TBLPROPERTIES ('delta.feature.allowColumnDefaults' = 'supported')
+COMMENT 'Tracks AI-generated descriptions and their review status';
 ```
 
 #### Step 3: Generate Secret Key
