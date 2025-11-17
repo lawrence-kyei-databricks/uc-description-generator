@@ -36,48 +36,51 @@ An AI-powered web application for generating and managing Unity Catalog table an
 
 ## Prerequisites
 
+**Required for all deployment options:**
 - Databricks workspace (AWS, Azure, or GCP)
-- SQL Warehouse with access to Unity Catalog
-- Databricks CLI installed and configured
-- Node.js 18+ (for frontend development)
-- Python 3.9+ (for local development)
+- SQL Warehouse with Unity Catalog access
+- Account admin or permissions to create apps and grant privileges
+
+**Additional requirements by deployment method:**
+- **Option 1 (Local):** Databricks CLI, Node.js 18+, Git
+- **Option 2 (Workspace):** Databricks workspace access only
+- **Option 3 (DABs):** Databricks CLI, Bundle configuration
 
 ## Quick Start
 
-### 1. Get the Code
+Choose the deployment method that best fits your workflow:
 
-Choose one of the following methods to get the code:
+| Method | Best For | Requirements |
+|--------|----------|--------------|
+| **Option 1: Local Deployment** | Developers with CLI setup | Databricks CLI, Node.js 18+, Git |
+| **Option 2: Databricks Workspace** | No local setup needed | Databricks workspace access only |
+| **Option 3: DABs (Advanced)** | CI/CD & automation | Databricks CLI, Bundle configuration |
 
-#### Option A: Clone with Git (Recommended)
+---
+
+### Option 1: Local Deployment (Recommended)
+
+**Best for:** Developers with Databricks CLI and Node.js installed locally
+
+#### Step 1: Get the Code
+
+Clone or download the repository:
 
 ```bash
-# Clone the repository
+# Clone with Git
 git clone https://github.com/lawrence-kyei-databricks/uc-description-generator.git
-
-# Navigate to the project directory
 cd uc-description-generator
 ```
 
-#### Option B: Download ZIP
+Or download ZIP from: https://github.com/lawrence-kyei-databricks/uc-description-generator
 
-1. Go to https://github.com/lawrence-kyei-databricks/uc-description-generator
-2. Click the green **Code** button
-3. Select **Download ZIP**
-4. Extract the ZIP file to your local machine
-5. Open terminal and navigate to the extracted folder:
-   ```bash
-   cd /path/to/uc-description-generator
-   ```
+#### Step 2: Setup Governance Table
 
-### 2. Setup Governance Table
-
-Run the setup SQL to create the governance schema and table:
+Run this SQL in Databricks SQL Editor or notebook:
 
 ```sql
--- Create governance schema
 CREATE SCHEMA IF NOT EXISTS main.governance;
 
--- Create governance table
 CREATE TABLE IF NOT EXISTS main.governance.description_governance (
     id BIGINT GENERATED ALWAYS AS IDENTITY,
     object_type STRING NOT NULL,
@@ -96,177 +99,224 @@ CREATE TABLE IF NOT EXISTS main.governance.description_governance (
 );
 ```
 
-### 3. Configure Application
+#### Step 3: Configure Application
 
-Update `app.yml` with your warehouse ID and secret key:
+Get your warehouse ID and generate a secret key:
 
 ```bash
-# Get your warehouse ID
+# Get warehouse ID
 databricks warehouses list --profile your-profile
 
-# Generate a secret key
+# Generate secret key
 python3 -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-Edit `app.yml` with your values:
+Edit `app.yml` and update these values:
 
 ```yaml
 resources:
   - name: warehouse
     warehouse:
-      id: "your-warehouse-id"  # Replace with your SQL Warehouse ID
+      id: "your-warehouse-id"  # ← Replace this
 
 env:
   - name: WAREHOUSE_ID
-    value: "your-warehouse-id"  # Replace with your SQL Warehouse ID
+    value: "your-warehouse-id"  # ← Replace this
   - name: FLASK_SECRET_KEY
-    value: "your-generated-secret-key"  # Replace with generated secret key
+    value: "your-generated-secret-key"  # ← Replace this
 ```
 
-### 4. Build Frontend
+#### Step 4: Build Frontend
 
 ```bash
-# Navigate to frontend directory
 cd frontend
-
-# Install dependencies (requires Node.js 18+)
 npm install
-
-# Build the frontend (creates static/ folder)
 npm run build
-
-# Return to project root
 cd ..
 
-# Verify static files were created
-ls -la static/
-# You should see: index.html and assets/ folder
+# Verify build succeeded
+ls static/
+# Should show: index.html and assets/ folder
 ```
 
-### 5. Deploy to Databricks
-
-Choose one of the following deployment methods:
-
-#### Method 1: Direct Deployment from Local Machine (Simplest)
-
-Deploy directly from your local directory:
+#### Step 5: Deploy
 
 ```bash
-# From the root of the project directory
 databricks apps deploy uc-description-generator \
   --source-code-path . \
   --profile your-profile
 ```
 
-**Note:** This uploads all files (including `static/` folder) directly from your local machine to Databricks Apps.
+**Done!** Skip to [Step 6: Grant Permissions](#6-grant-permissions) below.
 
-#### Method 2: Deploy from Workspace (Alternative)
+---
 
-If remote deployment fails, upload files to workspace first:
+### Option 2: Databricks Workspace (No Local Setup)
 
-**Step 1: Upload to Workspace**
-```bash
-# Upload entire directory to workspace
-databricks workspace import-dir . \
-  /Workspace/Users/your.email@company.com/uc-description-app \
-  --profile your-profile \
-  --overwrite
+**Best for:** Users without local development environment or CLI setup
+
+#### Step 1: Import from GitHub
+
+1. Open your Databricks workspace
+2. Go to **Workspace** → **Users** → **your.email@company.com**
+3. Click **Create** → **Git Folder**
+4. Enter URL: `https://github.com/lawrence-kyei-databricks/uc-description-generator`
+5. Click **Create Git Folder**
+
+#### Step 2: Setup Governance Table
+
+Open a Databricks SQL Editor and run:
+
+```sql
+CREATE SCHEMA IF NOT EXISTS main.governance;
+
+CREATE TABLE IF NOT EXISTS main.governance.description_governance (
+    id BIGINT GENERATED ALWAYS AS IDENTITY,
+    object_type STRING NOT NULL,
+    catalog_name STRING NOT NULL,
+    schema_name STRING NOT NULL,
+    table_name STRING,
+    column_name STRING,
+    data_type STRING,
+    generated_description STRING NOT NULL,
+    approved_description STRING,
+    review_status STRING DEFAULT 'PENDING',
+    reviewer STRING,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP(),
+    metadata STRING
+);
 ```
 
-**Step 2: Deploy from Workspace Location**
-```bash
-databricks apps deploy uc-description-generator \
-  --source-code-path /Workspace/Users/your.email@company.com/uc-description-app \
-  --profile your-profile
+#### Step 3: Configure app.yml
+
+1. In Databricks workspace, open `uc-description-generator/app.yml`
+2. Find your warehouse ID: Go to **SQL Warehouses** → Click your warehouse → Copy the ID from URL
+3. Generate secret key in a notebook:
+   ```python
+   import secrets
+   print(secrets.token_hex(32))  # Copy this output
+   ```
+4. Update `app.yml` with your warehouse ID and secret key
+
+#### Step 4: Build Frontend
+
+Create a new notebook in the `uc-description-generator` folder and run:
+
+```python
+%sh
+# Install Node.js
+curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+apt-get install -y nodejs
+
+# Build frontend
+cd /Workspace/Users/your.email@company.com/uc-description-generator/frontend
+npm install
+npm run build
+
+# Verify
+ls -la /Workspace/Users/your.email@company.com/uc-description-generator/static/
 ```
 
-**Step 3: Create/Update the App**
+#### Step 5: Deploy the App
 
-If the app doesn't exist yet:
-```bash
-# Create the app first
-databricks apps create uc-description-generator \
-  --profile your-profile
+**Option A: Using Databricks Apps UI**
+1. Go to **Compute** → **Apps**
+2. Click **Create App**
+3. Name: `uc-description-generator`
+4. Source path: `/Workspace/Users/your.email@company.com/uc-description-generator`
+5. Click **Create** and **Deploy**
+
+**Option B: Using CLI from Notebook**
+```python
+%sh
+pip install databricks-cli
+
+export DATABRICKS_HOST="https://your-workspace.cloud.databricks.com"
+export DATABRICKS_TOKEN="your-personal-access-token"
+
+cd /Workspace/Users/your.email@company.com/uc-description-generator
+databricks apps deploy uc-description-generator --source-code-path .
 ```
 
-Then deploy:
-```bash
-databricks apps deploy uc-description-generator \
-  --profile your-profile
-```
+**Done!** Continue to [Step 6: Grant Permissions](#6-grant-permissions) below.
 
-#### Method 3: Using DABs (Advanced)
+---
 
-For automated deployments:
+### Option 3: DABs Deployment (Advanced)
+
+**Best for:** Automated CI/CD pipelines and multi-environment deployments
 
 ```bash
-# Deploy to development environment
+# Deploy to development
 databricks bundle deploy -t dev
 
 # Deploy to production
 databricks bundle deploy -t prod
 ```
 
-#### Verify Deployment
+See `databricks.yml` for bundle configuration.
 
-After deployment, verify the app is running:
+---
+
+### Verify Deployment (All Options)
+
+After deploying with any of the above methods, verify the app is running:
 
 ```bash
 # Check app status
 databricks apps get uc-description-generator --profile your-profile
 
-# View app URL
+# Get the app URL
 databricks apps get uc-description-generator --profile your-profile | grep url
 
 # Check logs if there are issues
 databricks apps logs uc-description-generator --profile your-profile
 ```
 
-### 6. Grant Permissions
+Or use the Databricks UI: **Compute** → **Apps** → **uc-description-generator**
 
-Grant the app's service principal necessary permissions. First, get your service principal ID:
+---
+
+### Grant Permissions (Required for All Options)
+
+**⚠️ The app won't work without these permissions!**
+
+#### Step 1: Get Service Principal ID
 
 ```bash
-# Get the service principal client ID
+# Get the service principal ID from your deployed app
 databricks apps get uc-description-generator --profile your-profile | grep service_principal_client_id
 ```
 
-Then grant the required permissions:
+Or find it in Databricks UI: **Compute** → **Apps** → **uc-description-generator** → **Configuration**
+
+#### Step 2: Grant Required Permissions
+
+Run this SQL in Databricks SQL Editor (replace `<service-principal-id>` with your ID):
 
 ```sql
--- 1. Grant warehouse access (REQUIRED)
-GRANT USAGE ON WAREHOUSE `your-warehouse-name` TO `service-principal-id`;
+-- 1. Warehouse access
+GRANT USAGE ON WAREHOUSE `your-warehouse-name` TO `<service-principal-id>`;
 
--- 2. Grant governance table access (REQUIRED)
-GRANT USAGE ON CATALOG main TO `service-principal-id`;
-GRANT USAGE ON SCHEMA main.governance TO `service-principal-id`;
-GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `service-principal-id`;
+-- 2. Governance table access
+GRANT USAGE ON CATALOG main TO `<service-principal-id>`;
+GRANT USAGE ON SCHEMA main.governance TO `<service-principal-id>`;
+GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `<service-principal-id>`;
 
--- 3. Grant access to catalogs/schemas you want to document (REQUIRED)
--- The service principal needs SELECT (to read metadata) and MODIFY (to set comments)
--- on all tables you want to document. Examples:
-
--- Option A: Grant on entire catalog (easiest)
-GRANT USAGE ON CATALOG your_catalog TO `service-principal-id`;
-GRANT SELECT ON CATALOG your_catalog TO `service-principal-id`;
-GRANT MODIFY ON CATALOG your_catalog TO `service-principal-id`;
-
--- Option B: Grant on specific schema
-GRANT USAGE ON CATALOG your_catalog TO `service-principal-id`;
-GRANT USAGE ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
-GRANT SELECT ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
-GRANT MODIFY ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
-
--- Option C: Grant on specific table (most restrictive)
-GRANT USAGE ON CATALOG your_catalog TO `service-principal-id`;
-GRANT USAGE ON SCHEMA your_catalog.your_schema TO `service-principal-id`;
-GRANT SELECT ON TABLE your_catalog.your_schema.your_table TO `service-principal-id`;
-GRANT MODIFY ON TABLE your_catalog.your_schema.your_table TO `service-principal-id`;
+-- 3. Access to catalogs you want to document
+GRANT USAGE ON CATALOG your_catalog TO `<service-principal-id>`;
+GRANT SELECT ON CATALOG your_catalog TO `<service-principal-id>`;
+GRANT MODIFY ON CATALOG your_catalog TO `<service-principal-id>`;
 ```
 
-**Notes**:
-- `MODIFY` permission is required to set table and column comments. Without it, the apply step will fail.
-- SQL AI Functions (`ai_query()`) do not require special permissions - they work automatically through warehouse access. No additional grants needed for the AI model.
+**Why these permissions?**
+- `WAREHOUSE USAGE`: App needs to run queries
+- `SELECT`: Read table/column metadata
+- `MODIFY`: Write descriptions back to Unity Catalog
+- SQL AI Functions work automatically (no special permissions needed)
+
+**Tip:** Grant on entire catalog for simplicity, or restrict to specific schemas/tables for tighter security.
 
 ## Usage
 
