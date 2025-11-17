@@ -323,29 +323,37 @@ databricks apps get uc-description-generator | grep service_principal_client_id
 
 #### Step 2: Grant Required Permissions
 
-Run this SQL in Databricks SQL Editor (replace placeholders with your values):
+**A. Grant Warehouse Access (Using UI)**
+
+1. Go to **SQL Warehouses** in Databricks
+2. Click on your warehouse (e.g., "Shared Endpoint")
+3. Go to the **Permissions** tab
+4. Click **Grant**
+5. Search for and select your Service Principal (paste the ID: `12345678-1234-1234-1234-123456789abc`)
+6. Select **Can Use** permission
+7. Click **Grant**
+
+**B. Grant Catalog/Schema/Table Access (Using SQL)**
+
+Run this SQL in Databricks SQL Editor (replace `<service-principal-id>` with your actual ID):
 
 ```sql
--- 1. Warehouse access (use warehouse ID, not name)
--- Find your warehouse ID: SQL Warehouses → Click your warehouse → Copy ID from URL
-GRANT USAGE ON WAREHOUSE your_warehouse_id TO `<service-principal-id>`;
-
--- 2. Governance table access
+-- 1. Governance table access
 GRANT USAGE ON CATALOG main TO `<service-principal-id>`;
 GRANT USAGE ON SCHEMA main.governance TO `<service-principal-id>`;
 GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `<service-principal-id>`;
 
--- 3. Access to catalogs you want to document
+-- 2. Access to catalogs you want to document
 GRANT USAGE ON CATALOG your_catalog TO `<service-principal-id>`;
 GRANT SELECT ON CATALOG your_catalog TO `<service-principal-id>`;
 GRANT MODIFY ON CATALOG your_catalog TO `<service-principal-id>`;
 ```
 
-**Example with actual values:**
+**Example:**
 ```sql
-GRANT USAGE ON WAREHOUSE a1b2c3d4e5f6g7h8 TO `12345678-1234-1234-1234-123456789abc`;
 GRANT USAGE ON CATALOG main TO `12345678-1234-1234-1234-123456789abc`;
--- ... etc
+GRANT USAGE ON SCHEMA main.governance TO `12345678-1234-1234-1234-123456789abc`;
+GRANT ALL PRIVILEGES ON TABLE main.governance.description_governance TO `12345678-1234-1234-1234-123456789abc`;
 ```
 
 **Why these permissions?**
