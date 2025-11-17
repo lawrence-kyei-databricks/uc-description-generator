@@ -96,18 +96,81 @@ npm run build
 
 ### 4. Deploy to Databricks
 
+Choose one of the following deployment methods:
+
+#### Method 1: Direct Deployment from Local Machine (Simplest)
+
+Deploy directly from your local directory:
+
 ```bash
-# Deploy using Databricks CLI
+# From the root of the project directory
+databricks apps deploy uc-description-generator \
+  --source-code-path . \
+  --profile your-profile
+```
+
+**Note:** This uploads all files (including `static/` folder) directly from your local machine to Databricks Apps.
+
+#### Method 2: Deploy from Workspace (Alternative)
+
+If remote deployment fails, upload files to workspace first:
+
+**Step 1: Upload to Workspace**
+```bash
+# Upload entire directory to workspace
+databricks workspace import-dir . \
+  /Workspace/Users/your.email@company.com/uc-description-app \
+  --profile your-profile \
+  --overwrite
+```
+
+**Step 2: Deploy from Workspace Location**
+```bash
 databricks apps deploy uc-description-generator \
   --source-code-path /Workspace/Users/your.email@company.com/uc-description-app \
   --profile your-profile
 ```
 
-Or use DABs:
+**Step 3: Create/Update the App**
+
+If the app doesn't exist yet:
+```bash
+# Create the app first
+databricks apps create uc-description-generator \
+  --profile your-profile
+```
+
+Then deploy:
+```bash
+databricks apps deploy uc-description-generator \
+  --profile your-profile
+```
+
+#### Method 3: Using DABs (Advanced)
+
+For automated deployments:
 
 ```bash
-# Deploy with bundle
+# Deploy to development environment
 databricks bundle deploy -t dev
+
+# Deploy to production
+databricks bundle deploy -t prod
+```
+
+#### Verify Deployment
+
+After deployment, verify the app is running:
+
+```bash
+# Check app status
+databricks apps get uc-description-generator --profile your-profile
+
+# View app URL
+databricks apps get uc-description-generator --profile your-profile | grep url
+
+# Check logs if there are issues
+databricks apps logs uc-description-generator --profile your-profile
 ```
 
 ### 5. Grant Permissions
