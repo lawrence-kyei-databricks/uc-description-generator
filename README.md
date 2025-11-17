@@ -188,11 +188,10 @@ CREATE TABLE IF NOT EXISTS main.governance.description_governance (
 );
 ```
 
-#### Step 3: Generate Secret Key and Build Frontend
+#### Step 3: Generate Secret Key
 
 Create a new notebook in the `uc-description-generator` folder and run:
 
-**Cell 1: Generate Flask Secret Key**
 ```python
 import secrets
 secret_key = secrets.token_hex(32)
@@ -200,22 +199,26 @@ print(f"Your FLASK_SECRET_KEY: {secret_key}")
 print("\nCopy this value - you'll need it for app.yml configuration")
 ```
 
-**Cell 2: Build Frontend**
+#### Step 3b: Check if Frontend is Already Built
+
+Run this to check if the frontend is already built:
 
 ```python
 %sh
-# Install Node.js
-curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-apt-get install -y nodejs
-
-# Build frontend
-cd /Workspace/Users/your.email@company.com/uc-description-generator/frontend
-npm install
-npm run build
-
-# Verify
 ls -la /Workspace/Users/your.email@company.com/uc-description-generator/static/
 ```
+
+**If you see `index.html` and `assets/` folder:** ✅ **Skip to Step 4** - the frontend is already built and committed to the repo!
+
+**If the folder is empty or doesn't exist:** The frontend needs to be built. Since Databricks notebooks don't have permissions to install Node.js, you have two options:
+
+- **Option A (Simplest):** The repo already includes the built frontend in the `static/` folder, so you shouldn't need to rebuild it
+- **Option B:** If you need to rebuild, do it locally then re-upload:
+  ```bash
+  # On your local machine
+  cd frontend && npm install && npm run build
+  ```
+  Then push changes to GitHub and re-import the Git Folder
 
 #### Step 4: Configure app.yml
 
